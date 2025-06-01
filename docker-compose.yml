@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  traffic-monitor:
+    build: .
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix  # Chia sẻ X11 socket cho GUI
+      - .:/app  # Mount thư mục hiện tại vào container
+    environment:
+      - DISPLAY=${DISPLAY}  # Sử dụng display của host
+    devices:
+      - /dev/video0:/dev/video0  # Chia sẻ webcam với container
+    network_mode: "host"  # Sử dụng network của host để truy cập X11
