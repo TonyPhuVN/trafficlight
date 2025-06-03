@@ -1,0 +1,164 @@
+# Smart Traffic AI System - Project Intelligence and Patterns
+
+## Project Context
+This is a sophisticated Vietnamese traffic management system using AI, computer vision, and IoT sensors to optimize traffic light timing and reduce congestion.
+
+## Language and Internationalization
+- **Primary Documentation**: Vietnamese (README, comments in Vietnamese)
+- **Code**: English variable names, function names, and internal documentation
+- **UI Interface**: Vietnamese labels and messages for end users
+- **Technical Docs**: English for technical specifications (Memory Bank)
+- **Comments**: Vietnamese for business logic, English for technical implementation
+
+## Architecture Preferences
+
+### Threading and Concurrency
+- **Main Pattern**: Multi-threaded architecture with dedicated threads for each major component
+- **Thread Naming**: Use descriptive names (MainProcessingLoop, PerformanceMonitor, WebInterface)
+- **Thread Safety**: Use threading.Lock for shared resources, prefer immutable data structures
+- **Error Handling**: Each thread should have comprehensive try-catch with logging
+
+### Database Patterns
+- **Development**: SQLite for simplicity and portability
+- **Production**: PostgreSQL for scale and reliability
+- **Migrations**: Use Alembic for schema changes
+- **Queries**: SQLAlchemy ORM preferred, raw SQL only for complex analytics queries
+- **Batch Operations**: Group database writes for performance (every 5-10 seconds)
+
+### AI/ML Implementation
+- **Primary Framework**: PyTorch for flexibility and research compatibility
+- **Model Format**: ONNX for production deployment and cross-platform compatibility
+- **Inference**: Batch processing preferred for efficiency (process multiple frames)
+- **Model Loading**: Load once at startup, cache in memory
+- **Confidence Thresholds**: Configurable per deployment (default 0.7 for vehicle detection)
+
+### Configuration Management
+- **Format**: YAML for human-readable configuration files
+- **Hierarchy**: System > Environment > Component > Instance
+- **Environment Variables**: Sensitive data only (API keys, passwords)
+- **Runtime Changes**: Support hot-reload for non-critical parameters
+- **Validation**: Validate all config on startup with clear error messages
+
+### Error Handling Strategy
+- **Graceful Degradation**: System continues with reduced functionality when components fail
+- **Component Isolation**: One component failure shouldn't crash the entire system
+- **Recovery Mechanisms**: Automatic retry with exponential backoff
+- **User Notification**: Clear error messages in Vietnamese for operators
+- **Logging**: Structured logging with correlation IDs for debugging
+
+## Code Quality Standards
+
+### Python Conventions
+- **Formatting**: Black with line length 88
+- **Linting**: Flake8 with E203, W503 ignored (conflicts with Black)
+- **Type Hints**: Use type hints for all public functions and class methods
+- **Docstrings**: Google-style docstrings for all public functions
+- **Import Order**: isort with black compatibility
+
+### Testing Patterns
+- **Framework**: pytest with async support (pytest-asyncio)
+- **Mock Strategy**: Mock external dependencies (cameras, sensors, APIs)
+- **Test Data**: Use factories or fixtures for consistent test data
+- **Coverage**: Aim for >80% coverage, focus on critical paths
+- **Integration Tests**: Separate from unit tests, test component interactions
+
+### Performance Considerations
+- **Real-time Constraints**: All AI processing must complete within 2 seconds
+- **Memory Management**: Limit frame buffers to prevent memory leaks
+- **CPU Optimization**: Use multiprocessing for CPU-intensive AI tasks
+- **I/O Optimization**: Async/await for database and network operations
+- **Monitoring**: Track processing times and resource usage
+
+## Development Workflow
+
+### Feature Development
+1. **Design**: Update Memory Bank documentation if architecture changes
+2. **Implementation**: Start with simulation mode, then real hardware
+3. **Testing**: Unit tests first, integration tests second
+4. **Documentation**: Update relevant memory bank files
+5. **Performance**: Benchmark critical paths
+
+### Debugging Patterns
+- **Logging Levels**: DEBUG for development, INFO for production
+- **Correlation IDs**: Track requests through the entire system
+- **Performance Profiling**: Use cProfile for bottleneck identification
+- **Component Status**: Health checks for all major components
+- **Data Validation**: Validate all external inputs (camera frames, sensor data)
+
+### Deployment Patterns
+- **Environment Separation**: Clear dev/staging/production configurations
+- **Database Migrations**: Always test migrations on staging first
+- **Rollback Strategy**: Keep previous version deployable
+- **Health Checks**: Implement comprehensive health endpoints
+- **Monitoring**: Prometheus metrics for production monitoring
+
+## Hardware Integration
+
+### Camera Management
+- **Initialization**: Graceful handling of missing cameras
+- **Frame Processing**: Skip frames if processing falls behind
+- **Error Recovery**: Reconnect cameras automatically on failure
+- **Calibration**: Store calibration data in database, reload on startup
+- **Multi-camera**: Process cameras in parallel for performance
+
+### Sensor Integration
+- **MQTT**: Use QoS 1 for sensor data reliability
+- **Data Validation**: Validate sensor readings before processing
+- **Failure Handling**: Continue operation with degraded sensor data
+- **Calibration**: Regular sensor calibration with historical baselines
+- **Protocol**: Support multiple sensor types with abstraction layer
+
+### Traffic Light Control
+- **Safety First**: Always maintain minimum safety timing requirements
+- **Manual Override**: Allow operators to take control instantly
+- **State Validation**: Verify all state changes before applying
+- **Emergency Protocols**: Immediate response for emergency vehicles
+- **Logging**: Log all control actions with timestamps and reasons
+
+## User Experience Patterns
+
+### Dashboard Design
+- **Real-time Updates**: WebSocket connections for live data
+- **Vietnamese UI**: All user-facing text in Vietnamese
+- **Mobile Responsive**: Works on tablets and phones
+- **Performance**: Dashboard updates without blocking user interaction
+- **Error States**: Clear error messages and recovery instructions
+
+### API Design
+- **RESTful**: Standard REST patterns for CRUD operations
+- **Authentication**: JWT tokens for API access
+- **Rate Limiting**: Protect against abuse
+- **Documentation**: OpenAPI/Swagger documentation
+- **Versioning**: API versioning for backward compatibility
+
+## Maintenance and Operations
+
+### Monitoring
+- **System Health**: Monitor all component status continuously
+- **Performance Metrics**: Track processing times, accuracy, throughput
+- **Alert Thresholds**: Configurable alerting for anomalies
+- **Log Retention**: Archive logs for historical analysis
+- **Database Maintenance**: Regular optimization and cleanup
+
+### Updates and Maintenance
+- **Model Updates**: Hot-swappable AI models without system restart
+- **Configuration Changes**: Most config changes without restart
+- **Backup Strategy**: Regular database backups with retention policy
+- **Security Updates**: Process for rapid security patch deployment
+- **Documentation**: Keep Memory Bank updated with all changes
+
+## Vietnamese Language Considerations
+- **Character Encoding**: UTF-8 throughout the system
+- **Date/Time**: Vietnamese locale for user-facing timestamps
+- **Number Formatting**: Vietnamese number formatting conventions
+- **Error Messages**: Contextual Vietnamese error messages
+- **Help Text**: Comprehensive Vietnamese help documentation
+
+## Critical Success Factors
+1. **Real-time Performance**: Sub-2-second response time is non-negotiable
+2. **Reliability**: 99%+ uptime requirement for traffic safety
+3. **Accuracy**: >90% vehicle detection accuracy for effective optimization
+4. **Safety**: Traffic light control must always maintain safety protocols
+5. **Scalability**: System must support multiple intersections efficiently
+
+These patterns and preferences ensure consistent, high-quality development that meets the specific needs of Vietnamese traffic management while maintaining international technical standards.

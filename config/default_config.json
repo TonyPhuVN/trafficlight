@@ -1,0 +1,67 @@
+{
+  "mode": "simulation",
+  "database": {
+    "database_url": "sqlite:///data/traffic_data.db",
+    "backup_interval_hours": 6
+  },
+  "camera": {
+    "camera_id": -1,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "fps": 30,
+    "detection_zones": [
+      [
+        0,
+        0,
+        960,
+        540
+      ],
+      [
+        960,
+        0,
+        1920,
+        540
+      ],
+      [
+        960,
+        540,
+        1920,
+        1080
+      ],
+      [
+        0,
+        540,
+        960,
+        1080
+      ]
+    ]
+  },
+  "ai_model": {
+    "model_type": "YOLOv8",
+    "model_path": "models/yolov8n.pt",
+    "confidence_threshold": 0.7,
+    "device": "cpu"
+  },
+  "traffic_light": {
+    "min_green_time": 15,
+    "max_green_time": 120,
+    "yellow_time": 3,
+    "adaptive_timing": true
+  },
+  "sensors": {
+    "mqtt_broker_host": "localhost",
+    "mqtt_broker_port": 1883,
+    "collection_interval": 2.0
+  },
+  "web_interface": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "debug": true
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_file": "logs/smart_traffic.log"
+  }
+}
