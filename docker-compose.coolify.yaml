@@ -1,8 +1,13 @@
+# Docker Compose configuration optimized for Coolify deployment
+# This version addresses common mounting and directory structure issues
+
 version: '3.8'
 
 services:
   smart-traffic-ai:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: smart-traffic-ai-system
     restart: unless-stopped
     ports:
@@ -24,16 +29,18 @@ services:
       - traffic_logs:/app/logs
       - traffic_models:/app/models
     depends_on:
-      - redis
-      - mosquitto
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
     networks:
       - traffic_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
 
   redis:
     image: redis:7-alpine
@@ -45,12 +52,13 @@ services:
       - redis_data:/data
     networks:
       - traffic_network
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 3
+      start_period: 30s
 
   mosquitto:
     image: eclipse-mosquitto:2.0
@@ -62,29 +70,55 @@ services:
     volumes:
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-      - ./config:/mosquitto/config
+      - mosquitto_config:/mosquitto/config
+    configs:
+      - source: mosquitto_conf
+        target: /mosquitto/config/mosquitto.conf
     networks:
       - traffic_network
     healthcheck:
-      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "test", "-m", "test"]
+      test: ["CMD", "timeout", "5", "nc", "-z", "localhost", "1883"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
+
+configs:
+  mosquitto_conf:
+    file: ./config/mosquitto.conf
 
 volumes:
   traffic_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
   traffic_logs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs
   traffic_models:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./models
   redis_data:
     driver: local
   mosquitto_data:
     driver: local
   mosquitto_logs:
     driver: local
+  mosquitto_config:
+    driver: local
 
 networks:
   traffic_network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
