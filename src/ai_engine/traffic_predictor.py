@@ -480,7 +480,13 @@ class TrafficPredictor:
 if __name__ == "__main__":
     # Test traffic predictor
     import sys
-    sys.path.append('..')
+    import os
+    
+    # Add project root directory to path to access config module
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(current_dir))
+    sys.path.insert(0, project_root)
+    
     from config.config import SmartTrafficConfig, SystemMode
     
     config = SmartTrafficConfig(SystemMode.SIMULATION)

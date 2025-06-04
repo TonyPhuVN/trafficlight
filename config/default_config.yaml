@@ -1,0 +1,114 @@
+ai_model:
+  confidence_threshold: 0.7
+  device: auto
+  max_detections: 1000
+  model_path: models/yolov8n.pt
+  model_type: YOLOv8
+  nms_threshold: 0.45
+  vehicle_classes:
+  - car
+  - truck
+  - bus
+  - motorcycle
+  - bicycle
+  - ambulance
+  - fire truck
+  - police car
+camera:
+  auto_exposure: true
+  camera_id: -1
+  detection_zones:
+  - !!python/tuple
+    - 0
+    - 0
+    - 960
+    - 540
+  - !!python/tuple
+    - 960
+    - 0
+    - 1920
+    - 540
+  - !!python/tuple
+    - 960
+    - 540
+    - 1920
+    - 1080
+  - !!python/tuple
+    - 0
+    - 540
+    - 960
+    - 1080
+  fps: 30
+  night_mode: true
+  resolution: !!python/tuple
+  - 1920
+  - 1080
+  sensitivity: 0.8
+database:
+  backup_interval_hours: 6
+  data_retention_days: 365
+  database_url: sqlite:///data/simulation.db
+  enable_analytics: true
+  enable_historical: true
+  enable_realtime: true
+  redis_url: redis://localhost:6379
+logging:
+  log_file: logs/smart_traffic.log
+  log_level: INFO
+  log_retention: 4 weeks
+  log_rotation: 1 week
+  modules:
+    ai_engine: INFO
+    camera_system: INFO
+    data_processor: DEBUG
+    traffic_controller: INFO
+    web_interface: INFO
+mode: simulation
+sensors:
+  loop_detectors:
+  - north_in
+  - north_out
+  - south_in
+  - south_out
+  - east_in
+  - east_out
+  - west_in
+  - west_out
+  mqtt_broker: localhost
+  mqtt_port: 1883
+  mqtt_topics:
+    emergency: traffic/emergency
+    light_status: traffic/light_status
+    sensor_data: traffic/sensors
+    vehicle_count: traffic/vehicle_count
+  pressure_sensors:
+  - north
+  - south
+  - east
+  - west
+  pressure_threshold: 50.0
+  rain_sensor_pin: 4
+  temperature_sensor_pin: 18
+  weather_sensor_enabled: false
+traffic_light:
+  adaptive_timing: true
+  all_red_time: 1
+  emergency_green_time: 30
+  emergency_override: true
+  max_green_time: 120
+  min_green_time: 15
+  night_time_minimum: 10
+  pedestrian_crossing_time: 20
+  red_clearance_time: 2
+  rush_hour_multiplier: 1.5
+  yellow_time: 3
+web_interface:
+  admin_password: change-this-password
+  admin_username: admin
+  debug: false
+  enable_auth: true
+  host: 0.0.0.0
+  port: 8000
+  secret_key: your-secret-key-change-this
+  update_interval_seconds: 1
+  websocket_enabled: true
