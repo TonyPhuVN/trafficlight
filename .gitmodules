@@ -1,0 +1,4 @@
+[submodule "trafficlight"]
+	path = trafficlight
+	url = https://github.com/TonyPhuVN/trafficlight.git
+	branch = master
