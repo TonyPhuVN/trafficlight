@@ -24,6 +24,7 @@ from src.sensors.sensor_manager import SensorManager
 from src.database.database_manager import TrafficDatabase, AnalyticsEngine
 from src.web_interface.app import app, socketio
 from src.web_interface.health import add_health_routes
+from src.utils.logger import initialize_logging, get_logger, performance_monitor
 
 class SmartTrafficSystem:
     """Main system orchestrator"""
@@ -32,7 +33,7 @@ class SmartTrafficSystem:
         # Load configuration
         self.config = load_config(config_path)
         
-        # Setup logging
+        # Setup advanced logging system
         self._setup_logging()
         
         # System state
@@ -52,67 +53,84 @@ class SmartTrafficSystem:
         # Initialize all components
         self._initialize_components()
         
-        logging.info("Smart Traffic AI System initialized")
+        self.logger.info("Smart Traffic AI System initialized successfully", 
+                        system_mode=self.config.system.mode.value if hasattr(self.config.system, 'mode') else 'unknown')
     
     def _setup_logging(self):
-        """Configure system logging"""
-        log_level = getattr(logging, self.config.logging.level.upper())
+        """Configure advanced logging system"""
+        # Initialize the advanced logging system
+        logging_config = {
+            "level": "INFO",
+            "log_dir": "logs",
+            "max_file_size": "50 MB",
+            "retention": "30 days",
+            "compression": "zip",
+            "enable_console": True,
+            "enable_file": True,
+            "enable_json": True,
+            "enable_performance": True
+        }
         
-        logging.basicConfig(
-            level=log_level,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(self.config.logging.file_path),
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
+        # Override with config if available
+        if hasattr(self.config, 'logging'):
+            if hasattr(self.config.logging, 'level'):
+                logging_config["level"] = self.config.logging.level.upper()
         
-        # Reduce verbose logging from some libraries
-        logging.getLogger('urllib3').setLevel(logging.WARNING)
-        logging.getLogger('requests').setLevel(logging.WARNING)
+        # Initialize the advanced logging system
+        self.logging_system = initialize_logging(logging_config)
+        
+        # Get system logger
+        self.logger = get_logger("system_orchestrator")
+        
+        # Log system startup
+        self.logging_system.log_system_startup({
+            "mode": self.config.system.mode.value if hasattr(self.config.system, 'mode') else 'unknown',
+            "config_path": "config/config.py"
+        })
     
     def _initialize_components(self):
         """Initialize all system components"""
         try:
             # Database (initialize first)
-            logging.info("Initializing database...")
+            self.logger.info("Initializing database...", component="database")
             self.components['database'] = TrafficDatabase(self.config.database.db_path)
             self.components['analytics'] = AnalyticsEngine(self.components['database'])
             
             # AI Engines
-            logging.info("Initializing AI engines...")
+            self.logger.info("Initializing AI engines...", component="ai_engine")
             self.components['vehicle_detector'] = VehicleDetector(self.config.ai_models)
             self.components['traffic_predictor'] = TrafficPredictor(self.config.ai_models)
             
             # Camera System
-            logging.info("Initializing camera system...")
+            self.logger.info("Initializing camera system...", component="camera_system")
             self.components['camera_manager'] = CameraManager(self.config.cameras)
             
             # Traffic Light Controller
-            logging.info("Initializing traffic light controller...")
+            self.logger.info("Initializing traffic light controller...", component="traffic_controller")
             self.components['light_controller'] = TrafficLightController(self.config.traffic_lights)
             
             # Sensor Manager (if not simulation mode)
             if self.config.system.mode != SystemMode.SIMULATION:
-                logging.info("Initializing sensor manager...")
+                self.logger.info("Initializing sensor manager...", component="sensor_manager")
                 self.components['sensor_manager'] = SensorManager(self.config)
             else:
-                logging.info("Sensor manager disabled in simulation mode")
+                self.logger.info("Sensor manager disabled in simulation mode", component="sensor_manager")
                 self.components['sensor_manager'] = None
             
-            logging.info("All components initialized successfully")
+            self.logger.info("All components initialized successfully", 
+                           components_count=len([c for c in self.components.values() if c is not None]))
             
         except Exception as e:
-            logging.error(f"Failed to initialize components: {e}")
+            self.logger.error("Failed to initialize components", error=e)
             raise
     
     def start(self):
         """Start the traffic AI system"""
         if self.running:
-            logging.warning("System is already running")
+            self.logger.warning("System is already running")
             return
         
-        logging.info("Starting Smart Traffic AI System...")
+        self.logger.info("Starting Smart Traffic AI System...")
         self.running = True
         self.system_stats['start_time'] = datetime.now()
         
@@ -120,16 +138,16 @@ class SmartTrafficSystem:
             # Start camera system
             if self.components['camera_manager']:
                 self.components['camera_manager'].start_all_cameras()
-                logging.info("Camera system started")
+                self.logger.info("Camera system started", component="camera_system")
             
             # Start sensor data collection
             if self.components['sensor_manager']:
                 self.components['sensor_manager'].start_data_collection()
-                logging.info("Sensor data collection started")
+                self.logger.info("Sensor data collection started", component="sensor_manager")
             
             # Start traffic light controller
             self.components['light_controller'].start()
-            logging.info("Traffic light controller started")
+            self.logger.info("Traffic light controller started", component="traffic_controller")
             
             # Start main processing loop
             self.threads['main_loop'] = threading.Thread(
@@ -138,6 +156,7 @@ class SmartTrafficSystem:
                 name="MainProcessingLoop"
             )
             self.threads['main_loop'].start()
+            self.logger.info("Main processing loop started", thread="MainProcessingLoop")
             
             # Start performance monitoring
             self.threads['performance_monitor'] = threading.Thread(
@@ -146,6 +165,7 @@ class SmartTrafficSystem:
                 name="PerformanceMonitor"
             )
             self.threads['performance_monitor'].start()
+            self.logger.info("Performance monitoring started", thread="PerformanceMonitor")
             
             # Start web interface in a separate thread
             self.threads['web_interface'] = threading.Thread(
@@ -154,11 +174,13 @@ class SmartTrafficSystem:
                 name="WebInterface"
             )
             self.threads['web_interface'].start()
+            self.logger.info("Web interface started", thread="WebInterface")
             
-            logging.info("Smart Traffic AI System started successfully")
+            self.logger.info("Smart Traffic AI System started successfully", 
+                           threads_count=len(self.threads))
             
         except Exception as e:
-            logging.error(f"Failed to start system: {e}")
+            self.logger.error("Failed to start system", error=e)
             self.stop()
             raise
     
@@ -167,25 +189,28 @@ class SmartTrafficSystem:
         if not self.running:
             return
         
-        logging.info("Stopping Smart Traffic AI System...")
+        self.logger.info("Stopping Smart Traffic AI System...")
         self.running = False
         
         try:
             # Stop sensor data collection
             if self.components['sensor_manager']:
                 self.components['sensor_manager'].stop_data_collection()
+                self.logger.info("Sensor data collection stopped", component="sensor_manager")
             
             # Stop camera system
             if self.components['camera_manager']:
                 self.components['camera_manager'].stop_all_cameras()
+                self.logger.info("Camera system stopped", component="camera_system")
             
             # Stop traffic light controller
             self.components['light_controller'].stop()
+            self.logger.info("Traffic light controller stopped", component="traffic_controller")
             
             # Wait for threads to finish
             for thread_name, thread in self.threads.items():
                 if thread and thread.is_alive():
-                    logging.info(f"Waiting for {thread_name} to finish...")
+                    self.logger.info(f"Waiting for {thread_name} to finish...", thread=thread_name)
                     thread.join(timeout=5)
             
             # Record system shutdown
@@ -194,14 +219,17 @@ class SmartTrafficSystem:
                     'maintenance', 'low', 'System shutdown completed'
                 )
             
-            logging.info("Smart Traffic AI System stopped")
+            # Log system shutdown
+            self.logging_system.log_system_shutdown(self.system_stats)
+            self.logger.info("Smart Traffic AI System stopped successfully")
             
         except Exception as e:
-            logging.error(f"Error during system shutdown: {e}")
+            self.logger.error("Error during system shutdown", error=e)
     
     def _main_processing_loop(self):
         """Main processing loop - coordinates all AI and control operations"""
-        logging.info("Main processing loop started")
+        loop_logger = get_logger("main_processing_loop")
+        loop_logger.info("Main processing loop started")
         
         while self.running:
             try:
@@ -216,10 +244,10 @@ class SmartTrafficSystem:
                 time.sleep(self.config.system.processing_interval)
                 
             except Exception as e:
-                logging.error(f"Error in main processing loop: {e}")
+                loop_logger.error("Error in main processing loop", error=e)
                 time.sleep(5)  # Wait before retrying
         
-        logging.info("Main processing loop stopped")
+        loop_logger.info("Main processing loop stopped")
     
     def _process_intersection(self, intersection_id: str):
         """Process AI analysis and control for a single intersection"""
@@ -292,7 +320,7 @@ class SmartTrafficSystem:
             self._check_emergency_conditions(intersection_id, current_counts, sensor_data)
             
         except Exception as e:
-            logging.error(f"Error processing intersection {intersection_id}: {e}")
+            self.logger.error(f"Error processing intersection {intersection_id}", error=e, intersection_id=intersection_id)
     
     def _optimize_traffic_lights(self, intersection_id: str, 
                                current_counts: Dict[str, int],
@@ -335,7 +363,8 @@ class SmartTrafficSystem:
                     )
         
         except Exception as e:
-            logging.error(f"Error optimizing traffic lights for {intersection_id}: {e}")
+            self.logger.error(f"Error optimizing traffic lights for {intersection_id}", 
+                            error=e, intersection_id=intersection_id)
     
     def _check_emergency_conditions(self, intersection_id: str,
                                   current_counts: Dict[str, int],
@@ -353,7 +382,8 @@ class SmartTrafficSystem:
                 )
                 
                 # Could trigger emergency protocols here
-                logging.warning(f"Emergency traffic level at {intersection_id}: {total_traffic} vehicles")
+                self.logger.warning(f"Emergency traffic level at {intersection_id}: {total_traffic} vehicles",
+                                  intersection_id=intersection_id, total_traffic=total_traffic)
             
             # Check sensor data for anomalies
             if sensor_data and 'sensors' in sensor_data:
@@ -368,11 +398,13 @@ class SmartTrafficSystem:
                             )
         
         except Exception as e:
-            logging.error(f"Error checking emergency conditions for {intersection_id}: {e}")
+            self.logger.error(f"Error checking emergency conditions for {intersection_id}", 
+                            error=e, intersection_id=intersection_id)
     
     def _performance_monitor_loop(self):
         """Monitor system performance and log statistics"""
-        logging.info("Performance monitor started")
+        perf_logger = get_logger("performance_monitor")
+        perf_logger.info("Performance monitor started")
         
         while self.running:
             try:
@@ -383,11 +415,11 @@ class SmartTrafficSystem:
                 
                 # Log performance statistics every 5 minutes
                 if self.system_stats['uptime_seconds'] % 300 == 0:
-                    logging.info(f"System Performance - "
-                               f"Uptime: {self.system_stats['uptime_seconds']}s, "
-                               f"Vehicles: {self.system_stats['total_vehicles_processed']}, "
-                               f"Predictions: {self.system_stats['total_predictions_made']}, "
-                               f"Light Changes: {self.system_stats['total_light_changes']}")
+                    perf_logger.info("System Performance Statistics",
+                                   uptime_seconds=self.system_stats['uptime_seconds'],
+                                   vehicles_processed=self.system_stats['total_vehicles_processed'],
+                                   predictions_made=self.system_stats['total_predictions_made'],
+                                   light_changes=self.system_stats['total_light_changes'])
                 
                 # Record performance metrics in database
                 self.components['database'].record_performance_metric(
@@ -399,20 +431,21 @@ class SmartTrafficSystem:
                 time.sleep(60)  # Check every minute
                 
             except Exception as e:
-                logging.error(f"Error in performance monitor: {e}")
+                perf_logger.error("Error in performance monitor", error=e)
                 time.sleep(60)
         
-        logging.info("Performance monitor stopped")
+        perf_logger.info("Performance monitor stopped")
     
     def _start_web_interface(self):
         """Start the web interface"""
+        web_logger = get_logger("web_interface")
         try:
             # Add health check routes
             add_health_routes(app)
-            logging.info("Starting web interface on http://localhost:5000")
+            web_logger.info("Starting web interface on http://localhost:5000")
             socketio.run(app, host='0.0.0.0', port=5000, debug=False, use_reloader=False)
         except Exception as e:
-            logging.error(f"Error starting web interface: {e}")
+            web_logger.error("Error starting web interface", error=e)
     
     def get_system_status(self) -> Dict[str, Any]:
         """Get comprehensive system status"""
@@ -450,7 +483,8 @@ class SmartTrafficSystem:
 
 def signal_handler(signum, frame):
     """Handle system signals for graceful shutdown"""
-    logging.info(f"Received signal {signum}, shutting down...")
+    signal_logger = get_logger("signal_handler")
+    signal_logger.info(f"Received signal {signum}, shutting down...", signal=signum)
     if hasattr(signal_handler, 'system'):
         signal_handler.system.stop()
     sys.exit(0)
@@ -484,7 +518,8 @@ def main():
         print("\n🛑 Shutdown requested by user")
     except Exception as e:
         print(f"\n❌ System error: {e}")
-        logging.error(f"System error: {e}")
+        main_logger = get_logger("main")
+        main_logger.error("System error in main", error=e)
     finally:
         if 'system' in locals():
             system.stop()

@@ -50,6 +50,8 @@ Thumbs.db
 
 # Logs (will be created in container)
 logs/*.log
+logs/*.json
+logs/*.zip
 *.log
 
 # Temporary files
@@ -58,9 +60,11 @@ logs/*.log
 .cache/
 .pytest_cache/
 
-# Documentation
+# Documentation (except logging system docs)
 docs/
+!docs/logging_system.md
 *.md
+!README.md
 README*
 
 # Development files

@@ -3,7 +3,7 @@
 ## Technology Stack
 
 ### Core Programming Language
-- **Python 3.8+**: Primary development language
+- **Python 3.11**: Primary development language
 - **Type Hints**: Using mypy for type checking and code clarity
 - **Async/Await**: Asynchronous programming for concurrent operations
 
@@ -97,7 +97,7 @@
 
 ### System Requirements
 - **Operating System**: Cross-platform (Windows, Linux, macOS)
-- **Python Version**: 3.8 or higher
+- **Python Version**: 3.11 or higher
 - **Memory**: Minimum 8GB RAM (16GB recommended for production)
 - **Storage**: At least 10GB free space for models and data
 - **GPU**: Optional CUDA-compatible GPU for AI acceleration

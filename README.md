@@ -73,7 +73,7 @@ python run.py --web-interface
 - **Kết nối**: Internet cho cập nhật và đồng bộ
 
 ### Phần mềm
-- Python 3.8+
+- Python 3.11+
 - OpenCV 4.0+
 - TensorFlow/PyTorch
 - FastAPI cho web interface

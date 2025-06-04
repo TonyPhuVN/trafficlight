@@ -126,7 +126,7 @@ Based on examination of the existing codebase, this is a sophisticated traffic m
 ## Development Environment Status
 
 ### Current Setup
-- **Python Environment**: 3.8+ with comprehensive dependencies
+- **Python Environment**: 3.11 with comprehensive dependencies
 - **Development Tools**: Black, Flake8, MyPy for code quality
 - **Testing Framework**: pytest with async support
 - **Documentation**: Markdown-based with Vietnamese support
