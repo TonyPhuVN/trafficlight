@@ -15,8 +15,9 @@ import os
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-# Import the traffic simulator
+# Import the traffic simulator and optimizer
 from data_simulation.traffic_simulator import TrafficSimulator, WeatherSimulator
+from ai_engine.traffic_light_optimizer import TrafficLightOptimizer
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -26,6 +27,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Global simulation objects
 traffic_sim = TrafficSimulator("MAIN_INTERSECTION")
 weather_sim = WeatherSimulator()
+traffic_optimizer = TrafficLightOptimizer()
 simulation_running = False
 
 @app.route('/')
@@ -264,6 +266,33 @@ def index():
             </div>
 
             <div class="card">
+                <h3 data-icon="🚦">Traffic Light Predictions</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="ns-green-time">30</span>
+                        <span class="stat-label">North-South Green (s)</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="ew-green-time">30</span>
+                        <span class="stat-label">East-West Green (s)</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="cycle-time">66</span>
+                        <span class="stat-label">Total Cycle (s)</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="efficiency-score">0.8</span>
+                        <span class="stat-label">Efficiency Score</span>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; font-size: 0.9em;">
+                        <div id="light-reasoning">Proportional timing based on traffic demand</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
                 <h3 data-icon="📊">System Activity Log</h3>
                 <div id="activity-log" class="log">
                     <div>System initialized - Ready to start simulation</div>
@@ -292,6 +321,10 @@ def index():
 
         socket.on('activity_log', function(data) {
             addLogEntry(data.message);
+        });
+
+        socket.on('traffic_light_update', function(data) {
+            updateTrafficLightPredictions(data);
         });
 
         function startSimulation() {
@@ -344,6 +377,14 @@ def index():
             entry.textContent = `[${timestamp}] ${message}`;
             log.appendChild(entry);
             log.scrollTop = log.scrollHeight;
+        }
+
+        function updateTrafficLightPredictions(data) {
+            document.getElementById('ns-green-time').textContent = data.north_south_green;
+            document.getElementById('ew-green-time').textContent = data.east_west_green;
+            document.getElementById('cycle-time').textContent = data.cycle_time;
+            document.getElementById('efficiency-score').textContent = data.efficiency_score.toFixed(2);
+            document.getElementById('light-reasoning').textContent = data.reasoning;
         }
 
         // Initialize
@@ -404,6 +445,27 @@ def simulation_loop():
             zone_counts = traffic_sim.get_vehicle_counts_by_zone()
             weather = weather_sim.update_weather()
             
+            # Calculate optimal traffic light timing
+            vehicle_counts_dict = {
+                'North': zone_counts.get('North', {}).get('total', 0),
+                'South': zone_counts.get('South', {}).get('total', 0),
+                'East': zone_counts.get('East', {}).get('total', 0),
+                'West': zone_counts.get('West', {}).get('total', 0)
+            }
+            
+            # Check for emergency vehicles
+            emergency_count = stats.get('by_type', {}).get('emergency', 0)
+            
+            # Get weather condition for optimization
+            weather_condition = 'rain' if weather.get('rain_detected', False) else 'normal'
+            
+            # Predict optimal timing
+            traffic_phase = traffic_optimizer.predict_optimal_timing(
+                vehicle_counts_dict, 
+                emergency_count, 
+                weather_condition
+            )
+            
             # Emit updates to all connected clients
             socketio.emit('traffic_update', {
                 'stats': stats,
@@ -411,6 +473,15 @@ def simulation_loop():
             })
             
             socketio.emit('weather_update', weather)
+            
+            # Emit traffic light predictions
+            socketio.emit('traffic_light_update', {
+                'north_south_green': traffic_phase.north_south_timing.green_duration,
+                'east_west_green': traffic_phase.east_west_timing.green_duration,
+                'cycle_time': traffic_phase.total_cycle_time,
+                'efficiency_score': traffic_phase.efficiency_score,
+                'reasoning': traffic_phase.north_south_timing.reasoning
+            })
             
             # Log periodic updates
             if int(time.time()) % 10 == 0:  # Every 10 seconds
@@ -456,6 +527,67 @@ def api_weather():
     """API endpoint for weather data"""
     weather = weather_sim.update_weather()
     return jsonify(weather)
+
+@app.route('/api/traffic-lights')
+def api_traffic_lights():
+    """API endpoint for traffic light predictions"""
+    if simulation_running:
+        # Get current traffic data
+        stats = traffic_sim.get_traffic_statistics()
+        zone_counts = traffic_sim.get_vehicle_counts_by_zone()
+        weather = weather_sim.update_weather()
+        
+        # Prepare vehicle counts
+        vehicle_counts_dict = {
+            'North': zone_counts.get('North', {}).get('total', 0),
+            'South': zone_counts.get('South', {}).get('total', 0),
+            'East': zone_counts.get('East', {}).get('total', 0),
+            'West': zone_counts.get('West', {}).get('total', 0)
+        }
+        
+        # Get emergency count and weather condition
+        emergency_count = stats.get('by_type', {}).get('emergency', 0)
+        weather_condition = 'rain' if weather.get('rain_detected', False) else 'normal'
+        
+        # Predict optimal timing
+        traffic_phase = traffic_optimizer.predict_optimal_timing(
+            vehicle_counts_dict, 
+            emergency_count, 
+            weather_condition
+        )
+        
+        return jsonify({
+            'traffic_light_predictions': {
+                'north_south': {
+                    'green_duration': traffic_phase.north_south_timing.green_duration,
+                    'red_duration': traffic_phase.north_south_timing.red_duration,
+                    'yellow_duration': traffic_phase.north_south_timing.yellow_duration,
+                    'confidence': traffic_phase.north_south_timing.confidence,
+                    'priority': traffic_phase.north_south_timing.priority
+                },
+                'east_west': {
+                    'green_duration': traffic_phase.east_west_timing.green_duration,
+                    'red_duration': traffic_phase.east_west_timing.red_duration,
+                    'yellow_duration': traffic_phase.east_west_timing.yellow_duration,
+                    'confidence': traffic_phase.east_west_timing.confidence,
+                    'priority': traffic_phase.east_west_timing.priority
+                },
+                'cycle_info': {
+                    'total_cycle_time': traffic_phase.total_cycle_time,
+                    'efficiency_score': traffic_phase.efficiency_score,
+                    'phase_name': traffic_phase.phase_name,
+                    'reasoning': traffic_phase.north_south_timing.reasoning
+                },
+                'input_data': {
+                    'vehicle_counts': vehicle_counts_dict,
+                    'emergency_vehicles': emergency_count,
+                    'weather_condition': weather_condition
+                }
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+    else:
+        return jsonify({'error': 'Simulation not running'}), 400
 
 if __name__ == '__main__':
     print("🚦 Smart Traffic AI System - Web Dashboard")
