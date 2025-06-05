@@ -28,9 +28,9 @@ from src.utils.logger import initialize_logging, get_logger, performance_monitor
 class SmartTrafficSystem:
     """Main system orchestrator"""
     
-    def __init__(self, config_path: str = "config/config.py"):
-        # Load configuration
-        self.config = load_config(config_path)
+    def __init__(self, config_path: str = None):
+        # Load configuration (default mode, no file parsing)
+        self.config = load_config()
         
         # Setup advanced logging system
         self._setup_logging()
@@ -92,7 +92,7 @@ class SmartTrafficSystem:
         try:
             # Database (initialize first)
             self.logger.info("Initializing database...", component="database")
-            self.components['database'] = TrafficDatabase(self.config.database.db_path)
+            self.components['database'] = TrafficDatabase(self.config.database.database_url)
             self.components['analytics'] = AnalyticsEngine(self.components['database'])
             
             # AI Engines
