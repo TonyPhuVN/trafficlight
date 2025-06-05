@@ -57,17 +57,21 @@ class SmartTrafficSystem:
     
     def _setup_logging(self):
         """Configure advanced logging system"""
-        # Initialize the advanced logging system
+        # Initialize the advanced logging system - EMERGENCY SIMPLE CONFIG
         logging_config = {
             "level": "INFO",
             "log_dir": "logs",
             "max_file_size": "50 MB",
             "retention": "30 days",
             "compression": "zip",
+            "format": {
+                "console": "{time} | {level} | {message}",
+                "file": "{time} | {level} | {message}"
+            },
             "enable_console": True,
-            "enable_file": True,
-            "enable_json": True,
-            "enable_performance": True
+            "enable_file": False,  # Disable to avoid format issues
+            "enable_json": False,  # Disable to avoid format issues
+            "enable_performance": False  # Disable to avoid format issues
         }
         
         # Override with config if available
