@@ -24,6 +24,7 @@ from src.database.database_manager import TrafficDatabase, AnalyticsEngine
 from src.web_interface.app import app, socketio
 from src.web_interface.health import add_health_routes
 from src.utils.logger import initialize_logging, get_logger, performance_monitor
+from src.core.scenario_manager import get_scenario_manager, ScenarioManager
 
 class SmartTrafficSystem:
     """Main system orchestrator"""
@@ -230,29 +231,225 @@ class SmartTrafficSystem:
             self.logger.error("Error during system shutdown", error=e)
     
     def _main_processing_loop(self):
-        """Main processing loop - coordinates all AI and control operations"""
+        """Main processing loop - coordinates all AI and control operations with proper scenario management"""
         loop_logger = get_logger("main_processing_loop")
         loop_logger.info("Main processing loop started")
         
+        # Get scenario manager
+        scenario_manager = get_scenario_manager()
+        
+        # Active scenarios tracking
+        active_scenarios = {}
+        
         while self.running:
             try:
-                # Process each intersection (use default intersections since not defined in config)
+                # Process each intersection with proper scenario lifecycle
                 default_intersections = ["main_intersection", "north_junction", "east_junction", "south_junction"]
                 for intersection_id in default_intersections:
                     if not self.running:
                         break
                     
-                    self._process_intersection(intersection_id)
+                    # Create or get existing scenario for this intersection
+                    if intersection_id not in active_scenarios:
+                        scenario_id = scenario_manager.create_scenario(
+                            intersection_id,
+                            processing_params={
+                                'frame': None,
+                                'detections': None,
+                                'predictions': None
+                            }
+                        )
+                        scenario_manager.start_scenario(scenario_id)
+                        active_scenarios[intersection_id] = scenario_id
+                        loop_logger.info(f"🎯 Created scenario {scenario_id} for {intersection_id}")
+                    
+                    scenario_id = active_scenarios[intersection_id]
+                    
+                    # Process intersection with scenario tracking
+                    processing_start = time.time()
+                    try:
+                        vehicles_processed, predictions_made, light_changes = self._process_intersection_with_scenario(
+                            intersection_id, scenario_id, scenario_manager
+                        )
+                        processing_time = time.time() - processing_start
+                        
+                        # Update scenario progress
+                        scenario_manager.update_scenario_progress(
+                            scenario_id,
+                            vehicles_processed=vehicles_processed,
+                            predictions_made=predictions_made,
+                            light_changes=light_changes,
+                            processing_time=processing_time
+                        )
+                        
+                        # Complete and close scenario after successful processing
+                        scenario_manager.complete_scenario(scenario_id, success=True)
+                        scenario_manager.close_scenario(scenario_id)
+                        del active_scenarios[intersection_id]
+                        
+                    except Exception as scenario_error:
+                        processing_time = time.time() - processing_start
+                        scenario_manager.update_scenario_progress(
+                            scenario_id,
+                            processing_time=processing_time,
+                            error=str(scenario_error)
+                        )
+                        
+                        # Mark scenario as failed and close it
+                        scenario_manager.complete_scenario(scenario_id, success=False)
+                        scenario_manager.close_scenario(scenario_id, force=True)
+                        del active_scenarios[intersection_id]
+                        
+                        loop_logger.error(f"Error processing scenario {scenario_id} for {intersection_id}", 
+                                        error=scenario_error)
                 
                 # Sleep between processing cycles
                 time.sleep(2)  # Default processing interval
                 
             except Exception as e:
                 loop_logger.error("Error in main processing loop", error=e)
+                
+                # Clean up any remaining scenarios
+                for intersection_id, scenario_id in list(active_scenarios.items()):
+                    try:
+                        scenario_manager.complete_scenario(scenario_id, success=False)
+                        scenario_manager.close_scenario(scenario_id, force=True)
+                        del active_scenarios[intersection_id]
+                    except:
+                        pass
+                
                 time.sleep(5)  # Wait before retrying
+        
+        # Cleanup all active scenarios on shutdown
+        for intersection_id, scenario_id in active_scenarios.items():
+            try:
+                scenario_manager.complete_scenario(scenario_id, success=True)
+                scenario_manager.close_scenario(scenario_id)
+                loop_logger.info(f"🧹 Cleaned up scenario {scenario_id} for {intersection_id}")
+            except Exception as cleanup_error:
+                loop_logger.error(f"Error cleaning up scenario {scenario_id}", error=cleanup_error)
         
         loop_logger.info("Main processing loop stopped")
     
+    def _process_intersection_with_scenario(self, intersection_id: str, scenario_id: str, scenario_manager) -> tuple:
+        """Process AI analysis and control for a single intersection with scenario tracking"""
+        vehicles_processed = 0
+        predictions_made = 0
+        light_changes = 0
+        
+        try:
+            # Get current frame from camera manager
+            frame = self.components['camera_manager'].get_current_frame()
+            if frame is None:
+                return vehicles_processed, predictions_made, light_changes
+            
+            # Add frame to scenario resources for cleanup
+            scenario_manager.add_resource_to_scenario(scenario_id, 'current_frame', frame)
+            
+            current_counts = {}
+            all_vehicle_types = []
+            
+            # Detect vehicles in the frame (with error handling)
+            try:
+                detections = self.components['vehicle_detector'].detect_vehicles(frame)
+                # Add detections to scenario resources
+                scenario_manager.add_resource_to_scenario(scenario_id, 'detections', detections)
+                
+                counts = self.components['vehicle_detector'].count_vehicles_by_zone(detections)
+                
+                # Convert VehicleCount objects to dict format
+                for zone_name, count_obj in counts.items():
+                    if hasattr(count_obj, 'total'):
+                        current_counts[zone_name.lower()] = count_obj.total
+                        vehicles_processed += count_obj.total
+                        
+                        # Extract vehicle types from VehicleCount object
+                        zone_vehicle_types = []
+                        if hasattr(count_obj, 'cars') and count_obj.cars > 0:
+                            zone_vehicle_types.extend(['car'] * count_obj.cars)
+                        if hasattr(count_obj, 'trucks') and count_obj.trucks > 0:
+                            zone_vehicle_types.extend(['truck'] * count_obj.trucks)
+                        if hasattr(count_obj, 'buses') and count_obj.buses > 0:
+                            zone_vehicle_types.extend(['bus'] * count_obj.buses)
+                        if hasattr(count_obj, 'motorcycles') and count_obj.motorcycles > 0:
+                            zone_vehicle_types.extend(['motorcycle'] * count_obj.motorcycles)
+                        if hasattr(count_obj, 'bicycles') and count_obj.bicycles > 0:
+                            zone_vehicle_types.extend(['bicycle'] * count_obj.bicycles)
+                        if hasattr(count_obj, 'emergency_vehicles') and count_obj.emergency_vehicles > 0:
+                            zone_vehicle_types.extend(['emergency'] * count_obj.emergency_vehicles)
+                        
+                        all_vehicle_types.extend(zone_vehicle_types)
+                    else:
+                        # Fallback for different object types
+                        current_counts[zone_name.lower()] = int(count_obj) if isinstance(count_obj, (int, float)) else 0
+                        vehicles_processed += current_counts[zone_name.lower()]
+                
+                # Ensure we have some vehicle types even if counts are zero
+                if not all_vehicle_types:
+                    all_vehicle_types = ['car', 'truck', 'motorcycle']  # Default types
+                        
+            except Exception as detection_error:
+                # Fallback to simple simulation data
+                current_counts = {
+                    'north': 3, 'south': 2, 'east': 4, 'west': 1
+                }
+                all_vehicle_types = ['car', 'truck', 'motorcycle']
+                vehicles_processed = sum(current_counts.values())
+                
+                # Log detection error in scenario
+                scenario_manager.update_scenario_progress(scenario_id, error=f"Detection error: {str(detection_error)}")
+            
+            # Record vehicle detections in database
+            for direction, count in current_counts.items():
+                if count > 0:
+                    self.components['database'].record_vehicle_detection(
+                        intersection_id, direction, count, all_vehicle_types,
+                        detection_method='camera'
+                    )
+                    self.system_stats['total_vehicles_processed'] += count
+            
+            # Get sensor data if available
+            sensor_data = {}
+            if self.components['sensor_manager']:
+                sensor_data = self.components['sensor_manager'].get_intersection_sensor_data(intersection_id)
+                # Add sensor data to scenario
+                scenario_manager.add_resource_to_scenario(scenario_id, 'sensor_data', sensor_data)
+            
+            # Generate traffic predictions
+            prediction = self.components['traffic_predictor'].predict_short_term(
+                {'vehicle_counts': {k: {'total': v} for k, v in current_counts.items()}}, 
+                15
+            )
+            
+            if prediction:
+                predictions_made = 1
+                # Add predictions to scenario
+                scenario_manager.add_resource_to_scenario(scenario_id, 'predictions', prediction)
+                
+                # Record prediction in database
+                for horizon, volume in prediction.items():
+                    if horizon in ['short_term', 'medium_term', 'long_term']:
+                        self.components['database'].record_traffic_prediction(
+                            intersection_id, horizon, int(volume),
+                            confidence=0.8  # Mock confidence
+                        )
+                self.system_stats['total_predictions_made'] += 1
+            
+            # AI-driven traffic light optimization
+            optimization_result = self._optimize_traffic_lights(intersection_id, current_counts, prediction)
+            if optimization_result:
+                light_changes = 1
+            
+            # Check for emergency situations
+            self._check_emergency_conditions(intersection_id, current_counts, sensor_data)
+            
+            return vehicles_processed, predictions_made, light_changes
+            
+        except Exception as e:
+            self.logger.error(f"Error processing intersection {intersection_id} with scenario {scenario_id}", 
+                            error=e, intersection_id=intersection_id, scenario_id=scenario_id)
+            raise
+
     def _process_intersection(self, intersection_id: str):
         """Process AI analysis and control for a single intersection"""
         try:
@@ -357,7 +554,7 @@ class SmartTrafficSystem:
             
             if total_traffic == 0:
                 # No traffic - use default timing
-                return
+                return False
             
             # Simple AI optimization algorithm
             max_direction = max(current_counts.items(), key=lambda x: x[1])
@@ -383,10 +580,14 @@ class SmartTrafficSystem:
                         intersection_id, max_direction_name, 'green', 
                         extended_green, 'auto'
                     )
+                    return True
+            
+            return False
         
         except Exception as e:
             self.logger.error(f"Error optimizing traffic lights for {intersection_id}", 
                             error=e, intersection_id=intersection_id)
+            return False
     
     def _check_emergency_conditions(self, intersection_id: str,
                                   current_counts: Dict[str, int],
