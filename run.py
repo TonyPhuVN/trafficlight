@@ -14,8 +14,7 @@ from typing import Dict, Any, Optional
 import json
 
 # Import all system components
-from config.config_loader import load_config
-from config.config import SystemMode
+from config.config import load_config, SystemMode
 from src.ai_engine.vehicle_detector import VehicleDetector
 from src.ai_engine.traffic_predictor import TrafficPredictor
 from src.camera_system.camera_manager import CameraManager
@@ -54,7 +53,7 @@ class SmartTrafficSystem:
         self._initialize_components()
         
         self.logger.info("Smart Traffic AI System initialized successfully", 
-                        system_mode=self.config.system.mode.value if hasattr(self.config.system, 'mode') else 'unknown')
+                        system_mode=self.config.mode.value if hasattr(self.config, 'mode') else 'unknown')
     
     def _setup_logging(self):
         """Configure advanced logging system"""
@@ -84,7 +83,7 @@ class SmartTrafficSystem:
         
         # Log system startup
         self.logging_system.log_system_startup({
-            "mode": self.config.system.mode.value if hasattr(self.config.system, 'mode') else 'unknown',
+            "mode": self.config.mode.value if hasattr(self.config, 'mode') else 'unknown',
             "config_path": "config/config.py"
         })
     
@@ -98,19 +97,19 @@ class SmartTrafficSystem:
             
             # AI Engines
             self.logger.info("Initializing AI engines...", component="ai_engine")
-            self.components['vehicle_detector'] = VehicleDetector(self.config.ai_models)
-            self.components['traffic_predictor'] = TrafficPredictor(self.config.ai_models)
+            self.components['vehicle_detector'] = VehicleDetector(self.config)
+            self.components['traffic_predictor'] = TrafficPredictor(self.config)
             
             # Camera System
             self.logger.info("Initializing camera system...", component="camera_system")
-            self.components['camera_manager'] = CameraManager(self.config.cameras)
+            self.components['camera_manager'] = CameraManager(self.config)
             
             # Traffic Light Controller
             self.logger.info("Initializing traffic light controller...", component="traffic_controller")
-            self.components['light_controller'] = TrafficLightController(self.config.traffic_lights)
+            self.components['light_controller'] = TrafficLightController(self.config)
             
             # Sensor Manager (if not simulation mode)
-            if self.config.system.mode != SystemMode.SIMULATION:
+            if self.config.mode != SystemMode.SIMULATION:
                 self.logger.info("Initializing sensor manager...", component="sensor_manager")
                 self.components['sensor_manager'] = SensorManager(self.config)
             else:
@@ -233,15 +232,16 @@ class SmartTrafficSystem:
         
         while self.running:
             try:
-                # Process each intersection
-                for intersection_id in self.config.traffic_lights.intersections:
+                # Process each intersection (use default intersections since not defined in config)
+                default_intersections = ["main_intersection", "north_junction", "east_junction", "south_junction"]
+                for intersection_id in default_intersections:
                     if not self.running:
                         break
                     
                     self._process_intersection(intersection_id)
                 
                 # Sleep between processing cycles
-                time.sleep(self.config.system.processing_interval)
+                time.sleep(2)  # Default processing interval
                 
             except Exception as e:
                 loop_logger.error("Error in main processing loop", error=e)
@@ -252,36 +252,24 @@ class SmartTrafficSystem:
     def _process_intersection(self, intersection_id: str):
         """Process AI analysis and control for a single intersection"""
         try:
-            # Get camera frames
-            cameras = self.components['camera_manager'].get_intersection_cameras(intersection_id)
-            if not cameras:
+            # Get current frame from camera manager
+            frame = self.components['camera_manager'].get_current_frame()
+            if frame is None:
                 return
             
             current_counts = {}
             all_vehicle_types = []
             
-            # Process each camera view
-            for camera in cameras:
-                frame = camera.get_latest_frame()
-                if frame is None:
-                    continue
-                
-                # Detect vehicles
-                detection_result = self.components['vehicle_detector'].detect_vehicles(frame)
-                
-                # Count vehicles by direction
-                direction_counts = self.components['vehicle_detector'].count_vehicles(
-                    frame, intersection_id
-                )
-                
-                # Merge counts
-                for direction, count in direction_counts.items():
-                    current_counts[direction] = current_counts.get(direction, 0) + count
-                
-                # Collect vehicle types
-                if 'vehicles' in detection_result:
-                    for vehicle in detection_result['vehicles']:
-                        all_vehicle_types.append(vehicle['class'])
+            # Detect vehicles in the frame
+            detections = self.components['vehicle_detector'].detect_vehicles(frame)
+            counts = self.components['vehicle_detector'].count_vehicles_by_zone(detections)
+            
+            # Convert VehicleCount objects to dict format
+            for zone_name, count_obj in counts.items():
+                current_counts[zone_name] = count_obj.total
+                # Collect vehicle types from the frame
+                if hasattr(count_obj, 'vehicle_types'):
+                    all_vehicle_types.extend(count_obj.vehicle_types)
             
             # Record vehicle detections in database
             for direction, count in current_counts.items():
@@ -312,9 +300,8 @@ class SmartTrafficSystem:
                         )
                 self.system_stats['total_predictions_made'] += 1
             
-            # AI-driven traffic light optimization
-            if self.config.traffic_lights.ai_optimization_enabled:
-                self._optimize_traffic_lights(intersection_id, current_counts, prediction)
+            # AI-driven traffic light optimization (simulate for now)
+            self._optimize_traffic_lights(intersection_id, current_counts, prediction)
             
             # Check for emergency situations
             self._check_emergency_conditions(intersection_id, current_counts, sensor_data)
@@ -344,7 +331,7 @@ class SmartTrafficSystem:
             # If one direction has significantly more traffic, prioritize it
             if max_count > sum(current_counts.values()) * 0.6:
                 # Calculate extended green time
-                base_green = self.config.traffic_lights.default_green_duration
+                base_green = 30  # Default green duration
                 traffic_factor = min(max_count / 10, 2.0)  # Max 2x extension
                 extended_green = int(base_green * traffic_factor)
                 
@@ -373,7 +360,8 @@ class SmartTrafficSystem:
         try:
             # Check for extremely high traffic
             total_traffic = sum(current_counts.values())
-            if total_traffic > self.config.traffic_lights.emergency_threshold:
+            emergency_threshold = 50  # Default emergency threshold
+            if total_traffic > emergency_threshold:
                 # Record emergency event
                 self.components['database'].record_system_event(
                     'emergency', 'high', 
@@ -472,7 +460,7 @@ class SmartTrafficSystem:
             elif component_name == 'light_controller':
                 status['components'][component_name] = {
                     'status': 'running' if component and component.running else 'stopped',
-                    'active_intersections': len(self.config.traffic_lights.intersections)
+                    'active_intersections': 4  # Default number of intersections
                 }
             else:
                 status['components'][component_name] = {
