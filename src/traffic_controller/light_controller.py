@@ -478,6 +478,89 @@ class TrafficLightController:
                 args=(direction, self.config.traffic_light.emergency_green_time),
                 daemon=True
             ).start()
+    
+    # Compatibility methods for run.py interface
+    def start(self):
+        """Start controller (compatibility method for run.py)"""
+        try:
+            self.start_controller()
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Error starting controller: {e}")
+            return False
+    
+    def stop(self):
+        """Stop controller (compatibility method for run.py)"""
+        try:
+            self.stop_controller()
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Error stopping controller: {e}")
+            return False
+    
+    def get_intersection_state(self, intersection_id: str) -> Dict:
+        """Get current intersection state (compatibility method for run.py)"""
+        try:
+            return {
+                'intersection_id': intersection_id,
+                'current_states': self.get_current_states(),
+                'last_cycle': self.cycle_history[-1] if self.cycle_history else None,
+                'ai_enabled': self.ai_enabled,
+                'emergency_mode': self.emergency_mode,
+                'total_cycles': self.total_cycles
+            }
+        except Exception as e:
+            self.logger.error(f"❌ Error getting intersection state: {e}")
+            return {'intersection_id': intersection_id, 'error': str(e)}
+    
+    def optimize_intersection_timing(self, intersection_id: str, 
+                                   current_counts: Dict, predictions: Dict) -> bool:
+        """Optimize intersection timing based on data (compatibility method for run.py)"""
+        try:
+            # Convert data format from run.py to internal format
+            traffic_data = {
+                'vehicle_counts': {},
+                'waiting_times': {}
+            }
+            
+            # Convert current_counts to expected format
+            for direction, count in current_counts.items():
+                direction_cap = direction.capitalize()
+                traffic_data['vehicle_counts'][direction_cap] = {
+                    'total': count if isinstance(count, int) else count.get('total', 0),
+                    'emergency': 0
+                }
+                traffic_data['waiting_times'][direction_cap] = 60  # Default waiting time
+            
+            # Convert predictions to expected format  
+            prediction_data = {'short_term': {}}
+            if isinstance(predictions, dict):
+                for key, value in predictions.items():
+                    if key in ['short_term', 'medium_term', 'long_term']:
+                        prediction_data['short_term'] = value
+                        break
+                    elif isinstance(value, (int, float)):
+                        # Direct prediction values
+                        direction_cap = key.capitalize() 
+                        prediction_data['short_term'][direction_cap] = value
+            
+            # Calculate optimal cycle using existing method
+            optimal_cycle = self._calculate_optimal_cycle(traffic_data, prediction_data)
+            
+            # Apply the optimization by updating default cycles
+            for cycle in optimal_cycle:
+                for default_cycle in self.default_cycles:
+                    if default_cycle.direction == cycle.direction:
+                        default_cycle.green_time = cycle.green_time
+                        default_cycle.yellow_time = cycle.yellow_time
+                        break
+            
+            self.logger.info(f"✅ Optimized timing for {intersection_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Optimization error for {intersection_id}: {e}")
+            return False
 
 if __name__ == "__main__":
     # Test traffic light controller

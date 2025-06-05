@@ -452,6 +452,31 @@ class CameraManager:
         except Exception as e:
             self.logger.error(f"❌ Calibration error: {e}")
             return False
+    
+    # Compatibility methods for run.py interface
+    def start_all_cameras(self):
+        """Start all cameras (compatibility method for run.py)"""
+        try:
+            if self.initialize_camera():
+                self.start_capture()
+                self.logger.info("✅ All cameras started successfully")
+                return True
+            else:
+                self.logger.error("❌ Failed to start cameras")
+                return False
+        except Exception as e:
+            self.logger.error(f"❌ Error starting cameras: {e}")
+            return False
+    
+    def stop_all_cameras(self):
+        """Stop all cameras (compatibility method for run.py)"""
+        try:
+            self.stop_capture()
+            self.logger.info("🛑 All cameras stopped")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Error stopping cameras: {e}")
+            return False
 
 class SimulatedCamera:
     """Camera mô phỏng cho testing"""

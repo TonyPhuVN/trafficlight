@@ -298,8 +298,9 @@ class SmartTrafficSystem:
                 sensor_data = self.components['sensor_manager'].get_intersection_sensor_data(intersection_id)
             
             # Generate traffic predictions
-            prediction = self.components['traffic_predictor'].predict_traffic_flow(
-                intersection_id, current_counts
+            prediction = self.components['traffic_predictor'].predict_short_term(
+                {'vehicle_counts': {k: {'total': v} for k, v in current_counts.items()}}, 
+                15
             )
             
             # Record prediction in database
