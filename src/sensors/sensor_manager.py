@@ -26,6 +26,9 @@ class SensorManager:
         # Collection thread
         self.collection_thread = None
         
+        # Compatibility attributes for run.py interface
+        self.mqtt_manager = type('MockMQTT', (), {'connected': False})()  # Mock MQTT manager
+        
         # Simulated sensors (for testing/simulation mode)
         self.simulated_sensors = {
             'temp_001': {'type': 'environmental', 'unit': '°C', 'range': (15, 35)},
