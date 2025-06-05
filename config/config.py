@@ -225,12 +225,16 @@ class SmartTrafficConfig:
             self.sensors.weather_sensor_enabled = False
             self.camera.camera_id = -1  # Use simulated camera
             self.database.database_url = "sqlite:///data/simulation.db"
+            # Use simulation model path
+            self.ai_model.model_path = "simulation"  # Special flag for simulation
             
         elif self.mode == SystemMode.DEVELOPMENT:
             # Development mode - limited hardware
             self.web_interface.debug = True
             self.logging.log_level = "DEBUG"
             self.ai_model.device = "cpu"  # Force CPU for development
+            self.camera.camera_id = -1  # Use simulated camera in development too
+            self.ai_model.model_path = "simulation"  # Use simulation mode
             
         elif self.mode == SystemMode.PRODUCTION:
             # Production mode - full features

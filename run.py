@@ -268,14 +268,32 @@ class SmartTrafficSystem:
                 # Convert VehicleCount objects to dict format
                 for zone_name, count_obj in counts.items():
                     if hasattr(count_obj, 'total'):
-                        current_counts[zone_name] = count_obj.total
+                        current_counts[zone_name.lower()] = count_obj.total
+                        
+                        # Extract vehicle types from VehicleCount object
+                        zone_vehicle_types = []
+                        if hasattr(count_obj, 'cars') and count_obj.cars > 0:
+                            zone_vehicle_types.extend(['car'] * count_obj.cars)
+                        if hasattr(count_obj, 'trucks') and count_obj.trucks > 0:
+                            zone_vehicle_types.extend(['truck'] * count_obj.trucks)
+                        if hasattr(count_obj, 'buses') and count_obj.buses > 0:
+                            zone_vehicle_types.extend(['bus'] * count_obj.buses)
+                        if hasattr(count_obj, 'motorcycles') and count_obj.motorcycles > 0:
+                            zone_vehicle_types.extend(['motorcycle'] * count_obj.motorcycles)
+                        if hasattr(count_obj, 'bicycles') and count_obj.bicycles > 0:
+                            zone_vehicle_types.extend(['bicycle'] * count_obj.bicycles)
+                        if hasattr(count_obj, 'emergency_vehicles') and count_obj.emergency_vehicles > 0:
+                            zone_vehicle_types.extend(['emergency'] * count_obj.emergency_vehicles)
+                        
+                        all_vehicle_types.extend(zone_vehicle_types)
                     else:
                         # Fallback for different object types
-                        current_counts[zone_name] = int(count_obj) if isinstance(count_obj, (int, float)) else 0
-                    
-                    # Collect vehicle types from the frame
-                    if hasattr(count_obj, 'vehicle_types'):
-                        all_vehicle_types.extend(count_obj.vehicle_types)
+                        current_counts[zone_name.lower()] = int(count_obj) if isinstance(count_obj, (int, float)) else 0
+                
+                # Ensure we have some vehicle types even if counts are zero
+                if not all_vehicle_types:
+                    all_vehicle_types = ['car', 'truck', 'motorcycle']  # Default types
+                        
             except Exception as detection_error:
                 # Fallback to simple simulation data
                 current_counts = {
