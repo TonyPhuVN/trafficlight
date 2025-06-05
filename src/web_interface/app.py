@@ -31,10 +31,13 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 class WebDashboard:
     def __init__(self):
         self.config = load_config()
-        self.vehicle_detector = VehicleDetector(self.config.ai_models)
-        self.traffic_predictor = TrafficPredictor(self.config.ai_models)
-        self.light_controller = TrafficLightController(self.config.traffic_lights)
-        self.camera_manager = CameraManager(self.config.cameras)
+        self.vehicle_detector = VehicleDetector(self.config.ai_model)
+        self.traffic_predictor = TrafficPredictor(self.config.ai_model)
+        self.light_controller = TrafficLightController(self.config.traffic_light)
+        self.camera_manager = CameraManager(self.config.camera)
+        
+        # Default intersections (since not defined in config)
+        self.intersections = ["main_intersection", "north_junction", "east_junction", "south_junction"]
         
         # Dashboard data
         self.live_data = {
@@ -55,7 +58,7 @@ class WebDashboard:
         while True:
             try:
                 # Update traffic counts from all intersections
-                for intersection_id in self.config.traffic_lights.intersections:
+                for intersection_id in self.intersections:
                     cameras = self.camera_manager.get_intersection_cameras(intersection_id)
                     if cameras:
                         frame = cameras[0].get_latest_frame()
@@ -67,7 +70,7 @@ class WebDashboard:
                 self.live_data['light_states'] = self.light_controller.get_all_states()
                 
                 # Update predictions
-                for intersection_id in self.config.traffic_lights.intersections:
+                for intersection_id in self.intersections:
                     prediction = self.traffic_predictor.predict_traffic_flow(
                         intersection_id, 
                         self.live_data['traffic_counts'].get(intersection_id, {})
@@ -170,7 +173,7 @@ def daily_report():
             'intersections': []
         }
         
-        for intersection_id in dashboard.config.traffic_lights.intersections:
+        for intersection_id in dashboard.intersections:
             intersection_data = {
                 'intersection_id': intersection_id,
                 'total_vehicles': 3400,

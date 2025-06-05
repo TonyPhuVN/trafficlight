@@ -301,6 +301,34 @@ INTERSECTION_CONFIGS = {
 # Create default config instance
 default_config = SmartTrafficConfig()
 
+def load_config(config_file: str = None, mode: SystemMode = None):
+    """
+    Load configuration for the Smart Traffic AI System
+    
+    Args:
+        config_file: Optional path to YAML config file
+        mode: Optional system mode override
+        
+    Returns:
+        SmartTrafficConfig instance
+    """
+    if config_file and os.path.exists(config_file):
+        # Load from file if provided and exists
+        return SmartTrafficConfig.load_from_file(config_file)
+    else:
+        # Create default config based on environment or provided mode
+        if mode is None:
+            # Determine mode from environment
+            env_mode = os.getenv("SYSTEM_MODE", "simulation").lower()
+            if env_mode == "production":
+                mode = SystemMode.PRODUCTION
+            elif env_mode == "development":
+                mode = SystemMode.DEVELOPMENT
+            else:
+                mode = SystemMode.SIMULATION
+        
+        return SmartTrafficConfig(mode)
+
 if __name__ == "__main__":
     # Test configuration
     config = SmartTrafficConfig(SystemMode.SIMULATION)
