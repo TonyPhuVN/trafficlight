@@ -78,69 +78,23 @@ class CameraManager:
     
     def initialize_camera(self) -> bool:
         """
-        Khởi tạo camera
+        Khởi tạo camera - EMERGENCY OVERRIDE: ALWAYS USE SIMULATION
         
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Handle simulation mode
-            if self.config.camera.camera_id == -1:
-                self.logger.info("🎭 Simulation mode - using simulated camera")
-                self.camera = SimulatedCamera(self.config)
-                self.camera_status.is_connected = True
-                self.camera_status.resolution = self.config.camera.resolution
-                return True
-            
-            # Try to initialize real camera, but fallback to simulation if fails
-            try:
-                self.camera = cv2.VideoCapture(self.config.camera.camera_id)
-                
-                if not self.camera.isOpened():
-                    self.logger.warning(f"⚠️ Failed to open camera {self.config.camera.camera_id}, falling back to simulation")
-                    self.camera = SimulatedCamera(self.config)
-                    self.camera_status.is_connected = True
-                    self.camera_status.resolution = self.config.camera.resolution
-                    return True
-                
-                # Configure camera settings
-                self._configure_camera()
-                
-                # Test capture
-                ret, frame = self.camera.read()
-                if not ret or frame is None:
-                    self.logger.warning("⚠️ Failed to capture test frame, falling back to simulation")
-                    if self.camera:
-                        self.camera.release()
-                    self.camera = SimulatedCamera(self.config)
-                    self.camera_status.is_connected = True
-                    self.camera_status.resolution = self.config.camera.resolution
-                    return True
-                
-                # Update status for real camera
-                self.camera_status.is_connected = True
-                self.camera_status.resolution = (frame.shape[1], frame.shape[0])
-                
-                self.logger.info(f"✅ Real camera initialized: {self.camera_status.resolution}")
-                return True
-                
-            except Exception as camera_error:
-                self.logger.warning(f"⚠️ Camera hardware error: {camera_error}, using simulation mode")
-                self.camera = SimulatedCamera(self.config)
-                self.camera_status.is_connected = True
-                self.camera_status.resolution = self.config.camera.resolution
-                return True
+            # EMERGENCY OVERRIDE: Always use simulation mode to prevent hardware access
+            self.logger.info("🎭 EMERGENCY OVERRIDE - Using simulation mode only")
+            self.camera = SimulatedCamera(self.config)
+            self.camera_status.is_connected = True
+            self.camera_status.resolution = self.config.camera.resolution
+            self.logger.info(f"✅ Simulation camera initialized: {self.camera_status.resolution}")
+            return True
             
         except Exception as e:
-            self.logger.error(f"❌ Camera initialization error: {e}, trying simulation fallback")
-            try:
-                self.camera = SimulatedCamera(self.config)
-                self.camera_status.is_connected = True
-                self.camera_status.resolution = self.config.camera.resolution
-                return True
-            except Exception as sim_error:
-                self.logger.error(f"❌ Even simulation camera failed: {sim_error}")
-                return False
+            self.logger.error(f"❌ Even simulation camera failed: {e}")
+            return False
     
     def _configure_camera(self):
         """Cấu hình camera settings"""

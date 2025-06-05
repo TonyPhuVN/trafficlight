@@ -84,29 +84,15 @@ class VehicleDetector:
         return self.config.ai_model.device
     
     def load_model(self):
-        """Load YOLO model"""
+        """Load YOLO model - EMERGENCY OVERRIDE: ALWAYS USE SIMULATION"""
         try:
-            model_path = self.config.ai_model.model_path
+            # EMERGENCY OVERRIDE: Always use simulation mode to prevent model loading
+            self.logger.info("🎭 EMERGENCY OVERRIDE - Using simulation mode only for vehicle detection")
+            self.model = None
+            return
             
-            # Check for simulation mode
-            if model_path == "simulation":
-                self.logger.info("🎭 Using simulation mode for vehicle detection")
-                self.model = None
-                return
-            
-            # Check if model file exists
-            import os
-            if not os.path.exists(model_path):
-                self.logger.warning(f"⚠️ Model file not found: {model_path}, using simulation mode")
-                self.model = None
-                return
-            
-            self.model = YOLO(model_path)
-            self.model.to(self.device)
-            self.logger.info(f"✅ Model loaded: {model_path} on {self.device}")
         except Exception as e:
-            self.logger.warning(f"⚠️ Failed to load model: {e}, falling back to simulation mode")
-            # Fallback to simulation mode
+            self.logger.warning(f"⚠️ Model loading override error: {e}, using simulation mode")
             self.model = None
     
     def detect_vehicles(self, frame: np.ndarray) -> List[DetectionResult]:
