@@ -63,8 +63,17 @@ class VehicleDetector:
             'emergency': ['ambulance', 'fire truck', 'police car']
         }
         
-        # Detection zones for each direction
-        self.detection_zones = config.camera.detection_zones
+        # Detection zones for each direction - FIXED: Default zones when not in config
+        if hasattr(config, 'camera') and hasattr(config.camera, 'detection_zones'):
+            self.detection_zones = config.camera.detection_zones
+        else:
+            # Default detection zones (North, East, South, West)
+            self.detection_zones = [
+                (0, 0, 960, 540),           # North
+                (960, 0, 1920, 540),        # East
+                (960, 540, 1920, 1080),     # South
+                (0, 540, 960, 1080)         # West
+            ]
         self.zone_names = ["North", "East", "South", "West"]
         
         # Tracking variables
@@ -76,12 +85,17 @@ class VehicleDetector:
     
     def _get_device(self) -> str:
         """Xác định device để chạy model"""
-        if self.config.ai_model.device == "auto":
-            if torch.cuda.is_available():
-                return "cuda"
-            else:
-                return "cpu"
-        return self.config.ai_model.device
+        # FIXED: Safe config access with fallbacks
+        if hasattr(self.config, 'ai_model') and hasattr(self.config.ai_model, 'device'):
+            if self.config.ai_model.device == "auto":
+                if torch.cuda.is_available():
+                    return "cuda"
+                else:
+                    return "cpu"
+            return self.config.ai_model.device
+        else:
+            # Fallback to CPU if config is not available
+            return "cpu"
     
     def load_model(self):
         """Load YOLO model - EMERGENCY OVERRIDE: ALWAYS USE SIMULATION"""
