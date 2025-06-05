@@ -40,12 +40,20 @@ class TrafficSimulator:
         
         # Traffic patterns based on time of day
         self.traffic_patterns = {
-            'rush_hour_morning': {'density': 0.8, 'speed_factor': 0.6},
-            'rush_hour_evening': {'density': 0.9, 'speed_factor': 0.5},
-            'normal_day': {'density': 0.4, 'speed_factor': 1.0},
-            'night': {'density': 0.1, 'speed_factor': 1.2},
-            'weekend': {'density': 0.3, 'speed_factor': 1.1}
+            'rush_hour_morning': {'density': 0.8, 'speed_factor': 0.6, 'max_vehicles': 45},
+            'rush_hour_evening': {'density': 0.9, 'speed_factor': 0.5, 'max_vehicles': 50},
+            'heavy_traffic': {'density': 1.2, 'speed_factor': 0.3, 'max_vehicles': 80},
+            'extreme_congestion': {'density': 1.5, 'speed_factor': 0.2, 'max_vehicles': 100},
+            'normal_day': {'density': 0.4, 'speed_factor': 1.0, 'max_vehicles': 25},
+            'night': {'density': 0.1, 'speed_factor': 1.2, 'max_vehicles': 10},
+            'weekend': {'density': 0.3, 'speed_factor': 1.1, 'max_vehicles': 20},
+            'accident_scenario': {'density': 0.8, 'speed_factor': 0.1, 'max_vehicles': 60},
+            'event_traffic': {'density': 1.0, 'speed_factor': 0.4, 'max_vehicles': 70}
         }
+        
+        # Current traffic scenario (can be changed manually)
+        self.current_scenario = 'normal_day'
+        self.scenario_start_time = time.time()
         
         # Vehicle type probabilities
         self.vehicle_probabilities = {
@@ -101,7 +109,12 @@ class TrafficSimulator:
         }
     
     def get_current_traffic_pattern(self) -> Dict:
-        """Lấy pattern giao thông hiện tại dựa trên thời gian"""
+        """Lấy pattern giao thông hiện tại dựa trên thời gian hoặc scenario đã đặt"""
+        # If manual scenario is set, use it
+        if hasattr(self, 'current_scenario') and self.current_scenario in self.traffic_patterns:
+            return self.traffic_patterns[self.current_scenario]
+        
+        # Otherwise use time-based pattern
         now = datetime.now()
         hour = now.hour
         weekday = now.weekday()
@@ -116,6 +129,20 @@ class TrafficSimulator:
             return self.traffic_patterns['night']
         else:  # Normal day
             return self.traffic_patterns['normal_day']
+    
+    def set_traffic_scenario(self, scenario: str):
+        """Đặt scenario giao thông cụ thể"""
+        if scenario in self.traffic_patterns:
+            self.current_scenario = scenario
+            self.scenario_start_time = time.time()
+            print(f"🚦 Traffic scenario changed to: {scenario}")
+        else:
+            available_scenarios = list(self.traffic_patterns.keys())
+            print(f"❌ Invalid scenario. Available: {available_scenarios}")
+    
+    def get_available_scenarios(self) -> List[str]:
+        """Lấy danh sách các scenario có sẵn"""
+        return list(self.traffic_patterns.keys())
     
     def generate_vehicle_type(self) -> str:
         """Tạo loại xe ngẫu nhiên theo xác suất"""
@@ -258,11 +285,16 @@ class TrafficSimulator:
         # Generate new vehicles
         self.generate_new_vehicles()
         
-        # Limit total vehicles to prevent memory issues
-        if len(self.vehicles) > 50:
-            # Remove oldest vehicles
+        # Use dynamic vehicle limit based on current traffic pattern
+        pattern = self.get_current_traffic_pattern()
+        max_vehicles = pattern.get('max_vehicles', 50)
+        
+        # Limit total vehicles based on current scenario
+        if len(self.vehicles) > max_vehicles:
+            # Remove oldest vehicles to maintain limit
             self.vehicles = sorted(self.vehicles, key=lambda v: v.timestamp)
-            self.vehicles = self.vehicles[-30:]  # Keep newest 30
+            keep_count = max(int(max_vehicles * 0.8), 10)  # Keep 80% of max, minimum 10
+            self.vehicles = self.vehicles[-keep_count:]
     
     def get_current_detections(self) -> List[Dict]:
         """Lấy danh sách detection hiện tại"""
