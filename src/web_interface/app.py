@@ -36,6 +36,13 @@ class WebDashboard:
         self.light_controller = TrafficLightController(self.config)
         self.camera_manager = CameraManager(self.config)
         
+        # Initialize and start camera
+        if self.camera_manager.initialize_camera():
+            self.camera_manager.start_capture()
+            print("✅ Camera system started")
+        else:
+            print("⚠️ Camera initialization failed - using simulation mode")
+        
         # Default intersections (since not defined in config)
         self.intersections = ["main_intersection", "north_junction", "east_junction", "south_junction"]
         
@@ -57,25 +64,49 @@ class WebDashboard:
         """Background thread to monitor system and update live data"""
         while True:
             try:
-                # Update traffic counts from all intersections
-                for intersection_id in self.intersections:
-                    cameras = self.camera_manager.get_intersection_cameras(intersection_id)
-                    if cameras:
-                        frame = cameras[0].get_latest_frame()
-                        if frame is not None:
-                            counts = self.vehicle_detector.count_vehicles(frame, intersection_id)
-                            self.live_data['traffic_counts'][intersection_id] = counts
+                # Get current frame from camera manager
+                frame = self.camera_manager.get_current_frame()
                 
-                # Update light states
-                self.live_data['light_states'] = self.light_controller.get_all_states()
+                if frame is not None:
+                    # Detect vehicles in the frame
+                    detections = self.vehicle_detector.detect_vehicles(frame)
+                    counts = self.vehicle_detector.count_vehicles_by_zone(detections)
+                    
+                    # Update traffic counts for all intersections
+                    for intersection_id in self.intersections:
+                        # Convert VehicleCount objects to dict format
+                        intersection_counts = {}
+                        for zone_name, count_obj in counts.items():
+                            intersection_counts[zone_name] = {
+                                'cars': count_obj.cars,
+                                'trucks': count_obj.trucks,
+                                'buses': count_obj.buses,
+                                'motorcycles': count_obj.motorcycles,
+                                'bicycles': count_obj.bicycles,
+                                'emergency_vehicles': count_obj.emergency_vehicles,
+                                'total': count_obj.total,
+                                'timestamp': count_obj.timestamp
+                            }
+                        self.live_data['traffic_counts'][intersection_id] = intersection_counts
+                
+                # Update light states (simulate for now)
+                self.live_data['light_states'] = self._get_simulated_light_states()
                 
                 # Update predictions
                 for intersection_id in self.intersections:
-                    prediction = self.traffic_predictor.predict_traffic_flow(
-                        intersection_id, 
-                        self.live_data['traffic_counts'].get(intersection_id, {})
-                    )
-                    self.live_data['predictions'][intersection_id] = prediction
+                    current_data = {
+                        'vehicle_counts': self.live_data['traffic_counts'].get(intersection_id, {}),
+                        'weather': {'condition': 'clear', 'temperature': 25}
+                    }
+                    
+                    # Get predictions from traffic predictor
+                    short_pred = self.traffic_predictor.predict_short_term(current_data, 15)
+                    medium_pred = self.traffic_predictor.predict_medium_term(current_data, 60)
+                    
+                    self.live_data['predictions'][intersection_id] = {
+                        'short_term': short_pred,
+                        'medium_term': medium_pred
+                    }
                 
                 # Emit updates to connected clients
                 socketio.emit('dashboard_update', self.live_data)
@@ -85,6 +116,24 @@ class WebDashboard:
             except Exception as e:
                 print(f"Monitoring error: {e}")
                 time.sleep(5)
+    
+    def _get_simulated_light_states(self):
+        """Get simulated traffic light states"""
+        import random
+        states = ['red', 'yellow', 'green']
+        directions = ['north', 'south', 'east', 'west']
+        
+        light_states = {}
+        for intersection_id in self.intersections:
+            light_states[intersection_id] = {}
+            for direction in directions:
+                light_states[intersection_id][direction] = {
+                    'state': random.choice(states),
+                    'time_remaining': random.randint(10, 60),
+                    'next_state': random.choice(states)
+                }
+        
+        return light_states
 
 # Initialize dashboard
 dashboard = WebDashboard()
@@ -115,18 +164,17 @@ def get_intersection_data(intersection_id):
 def get_camera_feed(intersection_id):
     """Get camera feed for intersection"""
     try:
-        cameras = dashboard.camera_manager.get_intersection_cameras(intersection_id)
-        if cameras:
-            frame = cameras[0].get_latest_frame()
-            if frame is not None:
-                # Encode frame as base64
-                _, buffer = cv2.imencode('.jpg', frame)
-                frame_base64 = base64.b64encode(buffer).decode('utf-8')
-                return jsonify({
-                    'success': True,
-                    'image': f"data:image/jpeg;base64,{frame_base64}",
-                    'timestamp': datetime.datetime.now().isoformat()
-                })
+        # Get current frame from camera manager
+        frame = dashboard.camera_manager.get_current_frame()
+        if frame is not None:
+            # Encode frame as base64
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+            return jsonify({
+                'success': True,
+                'image': f"data:image/jpeg;base64,{frame_base64}",
+                'timestamp': datetime.datetime.now().isoformat()
+            })
     except Exception as e:
         print(f"Camera feed error: {e}")
     
