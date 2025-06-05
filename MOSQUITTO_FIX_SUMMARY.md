@@ -1,22 +1,26 @@
 # Mosquitto Configuration Fix Summary
 
 ## Problem
-**Error**: `Config file /mosquitto/config/mosquitto.conf is a directory`
-
-## Root Cause
-The original `docker-compose.yaml` was mounting the entire `./config` directory to `/mosquitto/config`:
-```yaml
-volumes:
-  - ./config:/mosquitto/config  # WRONG - causes the error
+**Error**: `Config file /mosquitto/config/mosquitto.conf is a directory` and subsequent Coolify mounting error:
+```
+Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error mounting "/data/coolify/applications/xxx/config/mosquitto.conf" to rootfs at "/mosquitto/config/mosquitto.conf": create mountpoint for /mosquitto/config/mosquitto.conf mount: cannot create subdirectories
 ```
 
-This made `/mosquitto/config/mosquitto.conf` a directory path instead of a direct file reference, causing Mosquitto to fail when trying to read its configuration file.
+## Root Cause
+The issue occurred in two phases:
+1. **Initial**: Mounting entire `./config` directory made `/mosquitto/config/mosquitto.conf` a directory path
+2. **Coolify**: File-specific mounting fails in Coolify because it can't create the directory structure needed for the mountpoint
 
-## Solution Applied
-Changed the volume mount to target the specific file:
+## Solution Applied (Final Fix for Coolify)
+Removed all external file mounting and used default mosquitto configuration:
 ```yaml
-volumes:
-  - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro  # CORRECT - fixed
+# FINAL SOLUTION - Coolify Compatible
+mosquitto:
+  image: eclipse-mosquitto:2.0
+  volumes:
+    - mosquitto_data:/mosquitto/data
+    - mosquitto_logs:/mosquitto/log
+  command: mosquitto -c /mosquitto-no-auth.conf  # Uses built-in config
 ```
 
 ## Files Modified
