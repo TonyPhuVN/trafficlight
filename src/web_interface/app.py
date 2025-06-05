@@ -31,10 +31,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 class WebDashboard:
     def __init__(self):
         self.config = load_config()
-        self.vehicle_detector = VehicleDetector(self.config.ai_model)
-        self.traffic_predictor = TrafficPredictor(self.config.ai_model)
-        self.light_controller = TrafficLightController(self.config.traffic_light)
-        self.camera_manager = CameraManager(self.config.camera)
+        self.vehicle_detector = VehicleDetector(self.config)
+        self.traffic_predictor = TrafficPredictor(self.config)
+        self.light_controller = TrafficLightController(self.config)
+        self.camera_manager = CameraManager(self.config)
         
         # Default intersections (since not defined in config)
         self.intersections = ["main_intersection", "north_junction", "east_junction", "south_junction"]
