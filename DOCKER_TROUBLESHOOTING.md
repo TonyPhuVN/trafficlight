@@ -3,17 +3,17 @@
 ## Common Docker Issues and Solutions
 
 ### Issue 1: Mosquitto Config File Mounting Error
-**Error**: `failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error mounting "/data/coolify/applications/xxx/config/mosquitto.conf" to rootfs at "/mosquitto/config/mosquitto.conf": create mountpoint`
+**Error**: `Config file /mosquitto/config/mosquitto.conf is a directory` or `failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error mounting`
 
-**Root Cause**: Docker is trying to mount a file to a path where the directory structure doesn't exist in the container.
+**Root Cause**: When mounting an entire directory (like `./config:/mosquitto/config`), the mosquitto.conf file path becomes a directory structure instead of a direct file, causing Mosquitto to fail when trying to read its configuration.
 
 **Solutions**:
 
-#### Solution A: Use Directory Mounting (Recommended)
+#### Solution A: Mount Specific File (Recommended - FIXED)
 ```yaml
-# In docker-compose.yaml
+# In docker-compose.yaml - CORRECT approach
 volumes:
-  - ./config:/mosquitto/config  # Mount entire directory instead of single file
+  - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
 ```
 
 #### Solution B: Use Docker Configs (Advanced)
@@ -36,6 +36,13 @@ services:
   mosquitto:
     command: mosquitto -c /mosquitto-no-auth.conf  # Use built-in config
     # Remove custom config volume mounting
+```
+
+**❌ AVOID**: Mounting entire directory causes the error
+```yaml
+# This CAUSES the error - DON'T USE
+volumes:
+  - ./config:/mosquitto/config  # Makes mosquitto.conf a directory path
 ```
 
 ### Issue 2: Volume Mounting in Coolify
