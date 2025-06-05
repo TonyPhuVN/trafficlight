@@ -1,7 +1,9 @@
-# PyTorch Missing Module Fix Summary
+# Missing Dependencies Fix Summary
 
-## Problem
-**Error**: `ModuleNotFoundError: No module named 'torch'`
+## Problems Fixed
+1. **Error**: `ModuleNotFoundError: No module named 'torch'`
+2. **Error**: `ModuleNotFoundError: No module named 'serial'`
+3. **Potential Error**: Missing `joblib` for model serialization
 
 ## Root Cause
 The Dockerfile was using `requirements-minimal.txt` which had PyTorch and other AI libraries commented out:
@@ -18,14 +20,19 @@ from typing import List, Dict, Tuple, Optional
 ```
 
 ## Solution Applied
-Updated `requirements-minimal.txt` to include essential AI/ML libraries:
+Updated `requirements-minimal.txt` to include all essential dependencies:
 
 ```python
+# MQTT & IoT (Added pyserial)
+paho-mqtt==1.6.1                 # MQTT protocol
+pyserial==3.5                    # Serial communication for sensors
+
 # AI/ML (Essential for Smart Traffic System)
 torch==2.0.1                     # PyTorch for deep learning
 ultralytics==8.0.196             # YOLOv8 for object detection
 scikit-learn==1.3.0              # Machine learning library
 torchvision==0.15.2              # Computer vision models
+joblib==1.3.2                    # Model serialization for scikit-learn
 ```
 
 ## Files Modified
