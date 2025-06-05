@@ -537,12 +537,8 @@ def main():
         print("\n🛑 Shutdown requested by user")
     except Exception as e:
         print(f"\n❌ System error: {e}")
-        try:
-            main_logger = get_logger("main")
-            main_logger.error("System error in main", error=e)
-        except:
-            # If logging fails, just print the error
-            print(f"Logging error: {e}")
+        # EMERGENCY BYPASS: Skip complex logging to avoid format errors
+        print(f"Error details: {type(e).__name__}: {str(e)}")
     finally:
         if 'system' in locals():
             system.stop()
