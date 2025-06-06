@@ -62,6 +62,27 @@ def index():
             margin: 0;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
+        .header .clock {
+            font-size: 1.2em;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .header .date {
+            font-size: 1em;
+            opacity: 0.9;
+            margin: 5px 0;
+        }
+        .header .location {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin: 5px 0;
+        }
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -189,6 +210,11 @@ def index():
         <div class="header">
             <h1>🚦 Smart Traffic AI System</h1>
             <p>Real-time Traffic Management Dashboard</p>
+            <div class="clock">
+                <div id="current-time">00:00:00</div>
+                <div class="date" id="current-date">Loading...</div>
+                <div class="location">📍 Hanoi, Vietnam</div>
+            </div>
         </div>
 
         <div class="controls">
@@ -225,20 +251,28 @@ def index():
                 <h3 data-icon="🌡️">Weather Conditions</h3>
                 <div class="stat-grid">
                     <div class="stat-item">
-                        <span class="stat-value" id="temperature">25</span>
+                        <span class="stat-value" id="temperature">32</span>
                         <span class="stat-label">Temperature (°C)</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value" id="humidity">60</span>
+                        <span class="stat-value" id="heat-index">38</span>
+                        <span class="stat-label">Feels Like (°C)</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="humidity">78</span>
                         <span class="stat-label">Humidity (%)</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value" id="light-level">500</span>
-                        <span class="stat-label">Light Level (Lux)</span>
+                        <span class="stat-value" id="weather-condition">Hot & Humid</span>
+                        <span class="stat-label">Condition</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value" id="rain-status">No</span>
-                        <span class="stat-label">Rain Detected</span>
+                        <span class="stat-label">Rain</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="air-quality">Moderate</span>
+                        <span class="stat-label">Air Quality</span>
                     </div>
                 </div>
             </div>
@@ -365,9 +399,34 @@ def index():
 
         function updateWeatherData(weather) {
             document.getElementById('temperature').textContent = weather.temperature;
+            document.getElementById('heat-index').textContent = weather.heat_index || weather.temperature + 5;
             document.getElementById('humidity').textContent = weather.humidity;
-            document.getElementById('light-level').textContent = Math.round(weather.light_level);
-            document.getElementById('rain-status').textContent = weather.rain_detected ? 'Yes' : 'No';
+            document.getElementById('rain-status').textContent = weather.rain_detected ? 
+                (weather.rain_intensity && weather.rain_intensity !== 'none' ? weather.rain_intensity.charAt(0).toUpperCase() + weather.rain_intensity.slice(1) : 'Yes') : 'No';
+            document.getElementById('air-quality').textContent = weather.air_quality ? 
+                weather.air_quality.charAt(0).toUpperCase() + weather.air_quality.slice(1) : 'Good';
+            
+            // Update weather condition with appropriate display text
+            let conditionText = 'Sunny';
+            if (weather.weather_condition) {
+                switch(weather.weather_condition) {
+                    case 'hot_humid':
+                        conditionText = 'Hot & Humid';
+                        break;
+                    case 'thunderstorm':
+                        conditionText = 'Thunderstorm';
+                        break;
+                    case 'rain':
+                        conditionText = 'Rainy';
+                        break;
+                    case 'sunny':
+                        conditionText = 'Sunny';
+                        break;
+                    default:
+                        conditionText = weather.weather_condition.charAt(0).toUpperCase() + weather.weather_condition.slice(1);
+                }
+            }
+            document.getElementById('weather-condition').textContent = conditionText;
         }
 
         function addLogEntry(message) {
@@ -386,6 +445,37 @@ def index():
             document.getElementById('efficiency-score').textContent = data.efficiency_score.toFixed(2);
             document.getElementById('light-reasoning').textContent = data.reasoning;
         }
+
+        function updateClock() {
+            const now = new Date();
+            
+            // Format time with Vietnam timezone
+            const timeOptions = {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            
+            const dateOptions = {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
+            
+            const timeString = now.toLocaleTimeString('en-GB', timeOptions);
+            const dateString = now.toLocaleDateString('en-US', dateOptions);
+            
+            document.getElementById('current-time').textContent = timeString;
+            document.getElementById('current-date').textContent = dateString;
+        }
+
+        // Update clock every second
+        updateClock();
+        setInterval(updateClock, 1000);
 
         // Initialize
         addLogEntry('🌐 Connected to server');

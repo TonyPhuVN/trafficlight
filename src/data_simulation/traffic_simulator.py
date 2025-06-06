@@ -458,61 +458,144 @@ class TrafficSimulator:
 
 # Weather simulation
 class WeatherSimulator:
-    """Mô phỏng điều kiện thời tiết"""
+    """Mô phỏng điều kiện thời tiết Hà Nội mùa hè"""
     
     def __init__(self):
-        self.base_temperature = 25.0  # Celsius
-        self.base_humidity = 60.0     # Percentage
-        self.base_light_level = 500.0 # Lux
-        self.rain_probability = 0.1   # 10% chance per hour
+        # Hanoi summer weather parameters (June-August)
+        self.base_temperature = 32.0  # Celsius - typical Hanoi summer temperature
+        self.base_humidity = 78.0     # Percentage - high humidity in summer
+        self.base_light_level = 800.0 # Lux - bright summer sunlight
+        self.rain_probability = 0.25  # 25% chance per hour - frequent summer storms
         self.is_raining = False
         self.rain_start_time = None
+        self.rain_intensity = 'light'  # light, moderate, heavy
+        
+        # Hanoi-specific weather patterns
+        self.monsoon_season = True  # Summer is monsoon season
+        self.heat_index_base = 38.0  # Feels-like temperature base
     
     def update_weather(self) -> Dict:
-        """Cập nhật điều kiện thời tiết"""
+        """Cập nhật điều kiện thời tiết Hà Nội mùa hè"""
         now = datetime.now()
         hour = now.hour
+        minute = now.minute
         
-        # Temperature varies by time of day
-        temp_variation = 10 * np.sin(2 * np.pi * (hour - 6) / 24)
-        temperature = self.base_temperature + temp_variation + random.gauss(0, 2)
-        
-        # Humidity varies inversely with temperature
-        humidity = self.base_humidity + (30 - temperature) + random.gauss(0, 5)
-        humidity = max(20, min(100, humidity))
-        
-        # Light level varies by time of day
+        # Hanoi summer temperature pattern (28°C night to 36°C peak afternoon)
         if 6 <= hour <= 18:  # Daytime
-            light_factor = 0.5 + 0.5 * np.sin(np.pi * (hour - 6) / 12)
-            light_level = self.base_light_level * (0.5 + light_factor) + random.gauss(0, 50)
+            # Peak heat around 2-3 PM (14-15h)
+            temp_factor = 0.5 + 0.5 * np.sin(np.pi * (hour - 6) / 12)
+            if 13 <= hour <= 16:  # Hottest part of day
+                temp_factor += 0.3
+            temperature = 28 + (8 * temp_factor) + random.gauss(0, 1.5)
+        else:  # Nighttime (cooler but still warm and humid)
+            temperature = 28 + random.gauss(0, 1)
+        
+        # Hanoi summer humidity (very high, 70-95%)
+        base_humidity = self.base_humidity
+        if self.is_raining:
+            humidity = min(95, base_humidity + 15 + random.gauss(0, 3))
+        else:
+            # Higher humidity in early morning and evening
+            if 5 <= hour <= 7 or 18 <= hour <= 22:
+                humidity = base_humidity + random.gauss(0, 5)
+            else:
+                humidity = base_humidity - 5 + random.gauss(0, 5)
+        
+        humidity = max(65, min(95, humidity))  # Summer humidity never goes below 65%
+        
+        # Light level with Hanoi summer patterns
+        if 6 <= hour <= 18:  # Daytime
+            light_factor = 0.3 + 0.7 * np.sin(np.pi * (hour - 6) / 12)
+            # Very bright summer sun
+            if 10 <= hour <= 16 and not self.is_raining:
+                light_level = 1200 + (300 * light_factor) + random.gauss(0, 100)
+            else:
+                light_level = self.base_light_level * light_factor + random.gauss(0, 80)
         else:  # Nighttime
-            light_level = 50 + random.gauss(0, 20)
+            light_level = 30 + random.gauss(0, 15)
         
-        light_level = max(10, light_level)
+        light_level = max(15, light_level)
         
-        # Rain simulation
-        if not self.is_raining and random.random() < self.rain_probability / 3600:  # Per second
-            self.is_raining = True
-            self.rain_start_time = now
+        # Hanoi summer rain patterns (afternoon thunderstorms are common)
+        afternoon_storm_probability = 0.0
+        if 13 <= hour <= 18:  # Afternoon storm season
+            afternoon_storm_probability = 0.4  # 40% chance during peak storm hours
+        elif 19 <= hour <= 22:  # Evening storms
+            afternoon_storm_probability = 0.2  # 20% chance
+        elif 1 <= hour <= 5:  # Early morning storms
+            afternoon_storm_probability = 0.15  # 15% chance
+        else:
+            afternoon_storm_probability = 0.05  # 5% chance other times
+        
+        # Rain simulation with intensity
+        if not self.is_raining:
+            if random.random() < afternoon_storm_probability / 3600:  # Per second
+                self.is_raining = True
+                self.rain_start_time = now
+                # Determine rain intensity
+                intensity_rand = random.random()
+                if intensity_rand < 0.4:
+                    self.rain_intensity = 'light'
+                elif intensity_rand < 0.8:
+                    self.rain_intensity = 'moderate'
+                else:
+                    self.rain_intensity = 'heavy'  # Typical Hanoi thunderstorms
         elif self.is_raining:
-            # Rain lasts 30 minutes to 3 hours
-            rain_duration = random.uniform(1800, 10800)  # seconds
+            # Rain duration based on intensity
+            if self.rain_intensity == 'light':
+                rain_duration = random.uniform(900, 3600)  # 15 min to 1 hour
+            elif self.rain_intensity == 'moderate':
+                rain_duration = random.uniform(1800, 5400)  # 30 min to 1.5 hours
+            else:  # heavy
+                rain_duration = random.uniform(600, 2700)  # 10 min to 45 min (intense but shorter)
+            
             if (now - self.rain_start_time).total_seconds() > rain_duration:
                 self.is_raining = False
                 self.rain_start_time = None
+                self.rain_intensity = 'light'
         
-        # Rain affects other parameters
+        # Weather effects during rain
         if self.is_raining:
-            humidity += 20
-            light_level *= 0.7
-            temperature -= 3
+            if self.rain_intensity == 'heavy':
+                humidity = min(95, humidity + 10)
+                light_level *= 0.4  # Very dark during heavy storms
+                temperature -= 5  # Significant cooling
+            elif self.rain_intensity == 'moderate':
+                humidity = min(92, humidity + 7)
+                light_level *= 0.6
+                temperature -= 3
+            else:  # light
+                humidity = min(88, humidity + 5)
+                light_level *= 0.8
+                temperature -= 1
+        
+        # Calculate heat index (feels-like temperature) typical for Hanoi summer
+        heat_index = temperature + (humidity / 100) * 8
+        if temperature > 32 and humidity > 70:
+            heat_index += 2  # Extra discomfort in high heat + humidity
+        
+        # Air quality (often poor in summer due to heat and humidity)
+        air_quality = 'moderate'
+        if humidity > 85 and temperature > 32:
+            air_quality = 'poor'
+        elif humidity < 75 and not self.is_raining:
+            air_quality = 'good'
         
         return {
             'temperature': round(temperature, 1),
             'humidity': round(humidity, 1),
+            'heat_index': round(heat_index, 1),
             'light_level': round(light_level, 1),
             'rain_detected': self.is_raining,
-            'visibility': 'poor' if self.is_raining else 'good',
+            'rain_intensity': self.rain_intensity if self.is_raining else 'none',
+            'air_quality': air_quality,
+            'visibility': 'poor' if (self.is_raining and self.rain_intensity == 'heavy') else 'good',
+            'weather_condition': 'thunderstorm' if (self.is_raining and self.rain_intensity == 'heavy') 
+                               else 'rain' if self.is_raining 
+                               else 'hot_humid' if (temperature > 32 and humidity > 80)
+                               else 'sunny',
+            'season': 'summer_monsoon',
+            'location': 'Hanoi, Vietnam',
             'timestamp': time.time()
         }
 
