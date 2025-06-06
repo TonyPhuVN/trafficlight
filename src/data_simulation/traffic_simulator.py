@@ -38,17 +38,17 @@ class TrafficSimulator:
         self.frame_height = 1080
         self.running = False
         
-        # Traffic patterns based on time of day
+        # Traffic patterns based on time of day - Updated for higher vehicle capacity
         self.traffic_patterns = {
-            'rush_hour_morning': {'density': 0.8, 'speed_factor': 0.6, 'max_vehicles': 45},
-            'rush_hour_evening': {'density': 0.9, 'speed_factor': 0.5, 'max_vehicles': 50},
-            'heavy_traffic': {'density': 1.2, 'speed_factor': 0.3, 'max_vehicles': 80},
-            'extreme_congestion': {'density': 1.5, 'speed_factor': 0.2, 'max_vehicles': 100},
-            'normal_day': {'density': 0.4, 'speed_factor': 1.0, 'max_vehicles': 25},
-            'night': {'density': 0.1, 'speed_factor': 1.2, 'max_vehicles': 10},
-            'weekend': {'density': 0.3, 'speed_factor': 1.1, 'max_vehicles': 20},
-            'accident_scenario': {'density': 0.8, 'speed_factor': 0.1, 'max_vehicles': 60},
-            'event_traffic': {'density': 1.0, 'speed_factor': 0.4, 'max_vehicles': 70}
+            'rush_hour_morning': {'density': 1.5, 'speed_factor': 0.6, 'max_vehicles': 120},
+            'rush_hour_evening': {'density': 1.8, 'speed_factor': 0.5, 'max_vehicles': 150},
+            'heavy_traffic': {'density': 2.0, 'speed_factor': 0.3, 'max_vehicles': 180},
+            'extreme_congestion': {'density': 2.5, 'speed_factor': 0.2, 'max_vehicles': 200},
+            'normal_day': {'density': 0.8, 'speed_factor': 1.0, 'max_vehicles': 80},
+            'night': {'density': 0.2, 'speed_factor': 1.2, 'max_vehicles': 30},
+            'weekend': {'density': 0.6, 'speed_factor': 1.1, 'max_vehicles': 60},
+            'accident_scenario': {'density': 1.2, 'speed_factor': 0.1, 'max_vehicles': 100},
+            'event_traffic': {'density': 1.6, 'speed_factor': 0.4, 'max_vehicles': 140}
         }
         
         # Current traffic scenario (can be changed manually)
@@ -438,13 +438,19 @@ class TrafficSimulator:
         
         avg_speed = total_speed / total_vehicles if total_vehicles > 0 else 0
         
-        # Traffic density
+        # Traffic density - Updated for 200 vehicle capacity
         pattern = self.get_current_traffic_pattern()
-        density_level = 'low'
-        if total_vehicles > 30:
+        max_capacity = 200
+        density_percentage = (total_vehicles / max_capacity) * 100
+        
+        if density_percentage >= 75:  # 150+ vehicles
+            density_level = 'extreme'
+        elif density_percentage >= 50:  # 100+ vehicles
             density_level = 'high'
-        elif total_vehicles > 15:
+        elif density_percentage >= 25:  # 50+ vehicles
             density_level = 'medium'
+        else:  # Less than 50 vehicles
+            density_level = 'low'
         
         return {
             'total_vehicles': total_vehicles,
