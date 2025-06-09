@@ -114,21 +114,32 @@ class TrafficSimulator:
         if hasattr(self, 'current_scenario') and self.current_scenario in self.traffic_patterns:
             return self.traffic_patterns[self.current_scenario]
         
-        # Otherwise use time-based pattern
+        # Otherwise use time-based pattern with custom vehicle requirements
         now = datetime.now()
         hour = now.hour
         weekday = now.weekday()
         
-        if weekday >= 5:  # Weekend
-            return self.traffic_patterns['weekend']
-        elif 7 <= hour <= 9:  # Morning rush
-            return self.traffic_patterns['rush_hour_morning']
-        elif 17 <= hour <= 19:  # Evening rush
-            return self.traffic_patterns['rush_hour_evening']
-        elif 22 <= hour or hour <= 6:  # Night
-            return self.traffic_patterns['night']
-        else:  # Normal day
-            return self.traffic_patterns['normal_day']
+        # Custom time-based vehicle count requirements:
+        # 7 AM to 6 PM (7-18): 100+ vehicles
+        # All other times: 50+ vehicles
+        
+        if 7 <= hour <= 18:  # Peak hours: 7 AM to 6 PM (100+ vehicles)
+            if 7 <= hour <= 9:  # Morning rush (highest traffic)
+                return {'density': 2.0, 'speed_factor': 0.5, 'max_vehicles': 150}
+            elif 17 <= hour <= 18:  # Evening rush 
+                return {'density': 2.2, 'speed_factor': 0.4, 'max_vehicles': 160}
+            elif 11 <= hour <= 14:  # Lunch time peak
+                return {'density': 1.8, 'speed_factor': 0.6, 'max_vehicles': 130}
+            else:  # Regular peak hours (9-11 AM, 2-5 PM)
+                return {'density': 1.5, 'speed_factor': 0.7, 'max_vehicles': 120}
+        
+        else:  # Off-peak hours: 6 PM to 7 AM (50+ vehicles)
+            if 19 <= hour <= 22:  # Evening traffic
+                return {'density': 0.8, 'speed_factor': 0.9, 'max_vehicles': 70}
+            elif 22 <= hour or hour <= 5:  # Night time
+                return {'density': 0.6, 'speed_factor': 1.1, 'max_vehicles': 55}
+            else:  # Early morning (5-7 AM)
+                return {'density': 0.7, 'speed_factor': 1.0, 'max_vehicles': 60}
     
     def set_traffic_scenario(self, scenario: str):
         """Đặt scenario giao thông cụ thể"""
@@ -263,14 +274,33 @@ class TrafficSimulator:
         """Tạo phương tiện mới dựa trên traffic pattern"""
         pattern = self.get_current_traffic_pattern()
         density = pattern['density']
+        max_vehicles = pattern.get('max_vehicles', 50)
+        current_vehicles = len(self.vehicles)
         
-        # Probability of new vehicle per direction per update
-        base_probability = 0.1 * density
+        # More aggressive vehicle generation to reach target counts
+        # Calculate how far we are from target
+        target_ratio = current_vehicles / max_vehicles
         
+        if target_ratio < 0.8:  # If we're below 80% of target, generate more aggressively
+            # Increase probability significantly when below target
+            base_probability = 0.25 * density * (1.5 - target_ratio)
+        else:
+            # Normal generation when near target
+            base_probability = 0.12 * density
+        
+        # Generate vehicles for each direction
         for direction in ['north', 'south', 'east', 'west']:
-            if random.random() < base_probability:
+            # Increase generation if we're significantly below target
+            if current_vehicles < max_vehicles * 0.7:
+                # Boost generation when far from target
+                generation_probability = base_probability * 1.5
+            else:
+                generation_probability = base_probability
+            
+            if random.random() < generation_probability:
                 new_vehicle = self.generate_vehicle(direction)
                 self.vehicles.append(new_vehicle)
+                current_vehicles += 1
     
     def update_simulation(self, dt: float = 1.0):
         """Cập nhật toàn bộ simulation"""
