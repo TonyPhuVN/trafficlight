@@ -30,6 +30,121 @@ weather_sim = WeatherSimulator()
 traffic_optimizer = TrafficLightOptimizer()
 simulation_running = False
 
+# Manual vehicle count override
+manual_mode = False
+manual_vehicle_counts = {
+    'North': 0,
+    'East': 0,
+    'South': 0,
+    'West': 0
+}
+
+# Auto mode maximum limits
+auto_mode_limits = {
+    'North': 15,
+    'East': 15,
+    'South': 15,
+    'West': 15
+}
+
+# Automated test scenarios - Nhiều trường hợp thực tế
+test_mode = False
+test_scenarios = [
+    # Các trường hợp bình thường hàng ngày
+    {
+        'name': 'Sáng sớm (6:00-7:00)',
+        'description': 'Giao thông nhẹ, chủ yếu xe đi làm sớm và xe tập thể dục',
+        'counts': {'North': 8, 'East': 6, 'South': 10, 'West': 5},
+        'duration': 10
+    },
+    {
+        'name': 'Giờ cao điểm sáng (7:00-9:00)',
+        'description': 'Giao thông đông từ khu dân cư vào trung tâm thành phố',
+        'counts': {'North': 25, 'East': 12, 'South': 30, 'West': 15},
+        'duration': 15
+    },
+    {
+        'name': 'Giữa buổi sáng (9:00-11:00)',
+        'description': 'Giao thông vừa phải, chủ yếu xe công việc và mua sắm',
+        'counts': {'North': 12, 'East': 15, 'South': 10, 'West': 18},
+        'duration': 12
+    },
+    {
+        'name': 'Trưa (11:00-13:00)',
+        'description': 'Giao thông tăng nhẹ do giờ ăn trưa và nghỉ trưa',
+        'counts': {'North': 18, 'East': 20, 'South': 16, 'West': 22},
+        'duration': 12
+    },
+    {
+        'name': 'Chiều (13:00-16:00)',
+        'description': 'Giao thông ổn định, hoạt động thương mại bình thường',
+        'counts': {'North': 14, 'East': 16, 'South': 12, 'West': 19},
+        'duration': 10
+    },
+    {
+        'name': 'Giờ cao điểm chiều (16:00-18:00)',
+        'description': 'Giao thông đông từ trung tâm về khu dân cư',
+        'counts': {'North': 15, 'East': 28, 'South': 12, 'West': 35},
+        'duration': 15
+    },
+    {
+        'name': 'Tối (18:00-20:00)',
+        'description': 'Giao thông giảm dần, một số hoạt động giải trí',
+        'counts': {'North': 10, 'East': 14, 'South': 8, 'West': 16},
+        'duration': 10
+    },
+    {
+        'name': 'Cuối tuần sáng',
+        'description': 'Giao thông nhẹ, chủ yếu đi chợ và dạo phố',
+        'counts': {'North': 12, 'East': 18, 'South': 15, 'West': 20},
+        'duration': 12
+    },
+    {
+        'name': 'Cuối tuần chiều',
+        'description': 'Giao thông tăng do hoạt động mua sắm và giải trí',
+        'counts': {'North': 20, 'East': 25, 'South': 18, 'West': 28},
+        'duration': 12
+    },
+    {
+        'name': 'Giờ tan trường',
+        'description': 'Giao thông đông quanh khu vực trường học',
+        'counts': {'North': 22, 'East': 18, 'South': 28, 'West': 15},
+        'duration': 10
+    },
+    {
+        'name': 'Ngày mưa',
+        'description': 'Giao thông chậm và tắc nghẽn do thời tiết xấu',
+        'counts': {'North': 30, 'East': 25, 'South': 35, 'West': 28},
+        'duration': 15
+    },
+    {
+        'name': 'Đêm khuya (22:00-6:00)',
+        'description': 'Giao thông rất nhẹ, chủ yếu xe tải và taxi',
+        'counts': {'North': 3, 'East': 5, 'South': 2, 'West': 4},
+        'duration': 8
+    },
+    {
+        'name': 'Sự kiện đặc biệt',
+        'description': 'Giao thông đông do có sự kiện lớn trong khu vực',
+        'counts': {'North': 35, 'East': 30, 'South': 40, 'West': 32},
+        'duration': 12
+    },
+    {
+        'name': 'Thi công đường',
+        'description': 'Giao thông bị ảnh hưởng do thi công, phân luồng không đều',
+        'counts': {'North': 40, 'East': 8, 'South': 45, 'West': 10},
+        'duration': 12
+    },
+    {
+        'name': 'Tình huống khẩn cấp',
+        'description': 'Giao thông cao với nhiều xe cứu thương và cứu hỏa',
+        'counts': {'North': 45, 'East': 40, 'South': 50, 'West': 38},
+        'duration': 10
+    }
+]
+current_test_index = 0
+test_start_time = 0
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -203,6 +318,75 @@ def index():
         .pulsing {
             animation: pulse 2s infinite;
         }
+        .manual-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .input-group label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+        .input-group input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1em;
+        }
+        .input-hint {
+            font-size: 0.8em;
+            opacity: 0.7;
+            min-width: 80px;
+            text-align: right;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #4ade80;
+            box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+        }
+        .btn.active {
+            background: #f59e0b;
+        }
+        .btn.active:hover {
+            background: #d97706;
+        }
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .preset-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .preset-btn:hover {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+            transform: translateY(-2px);
+        }
+        .preset-btn small {
+            display: block;
+            margin-top: 5px;
+            opacity: 0.8;
+            font-size: 0.8em;
+        }
     </style>
 </head>
 <body>
@@ -220,9 +404,89 @@ def index():
         <div class="controls">
             <button class="btn" onclick="startSimulation()">🚀 Start Simulation</button>
             <button class="btn danger" onclick="stopSimulation()">🛑 Stop Simulation</button>
+            <button class="btn" onclick="toggleManualMode()" id="manual-toggle">🎛️ Manual Mode</button>
+            <button class="btn" onclick="toggleTestMode()" id="test-toggle">🧪 Test Mode</button>
         </div>
 
         <div id="status" class="status stopped">⏹️ Simulation Stopped</div>
+
+        <!-- Test Mode Status Panel -->
+        <div id="test-status" class="card" style="display: none; margin: 20px 0; text-align: center;">
+            <h3 data-icon="🧪">Automated Test Mode</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0;">
+                <div class="stat-item">
+                    <span class="stat-value" id="current-test">-</span>
+                    <span class="stat-label">Current Scenario</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="test-progress">0/15</span>
+                    <span class="stat-label">Progress</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="time-remaining">--</span>
+                    <span class="stat-label">Time Remaining</span>
+                </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <div id="test-description" style="font-style: italic;">Ready to start automated testing...</div>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="btn" onclick="nextTest()">⏭️ Next Scenario</button>
+                <button class="btn" onclick="resetTests()">🔄 Reset Tests</button>
+            </div>
+        </div>
+
+        <!-- Vehicle Control Panel -->
+        <div id="control-panel" class="card" style="display: none; margin: 20px 0;">
+            <h3 data-icon="🎛️" id="control-title">Manual Vehicle Control</h3>
+            <p id="control-description" style="margin-bottom: 15px; opacity: 0.9;">Set specific vehicle counts for each direction:</p>
+            <div class="manual-inputs">
+                <div class="input-group">
+                    <label>🔼 North:</label>
+                    <input type="number" id="north-input" min="0" max="100" value="0" onchange="updateVehicleCount('North', this.value)">
+                    <span class="input-hint" id="north-hint">Fixed count</span>
+                </div>
+                <div class="input-group">
+                    <label>▶️ East:</label>
+                    <input type="number" id="east-input" min="0" max="100" value="0" onchange="updateVehicleCount('East', this.value)">
+                    <span class="input-hint" id="east-hint">Fixed count</span>
+                </div>
+                <div class="input-group">
+                    <label>🔽 South:</label>
+                    <input type="number" id="south-input" min="0" max="100" value="0" onchange="updateVehicleCount('South', this.value)">
+                    <span class="input-hint" id="south-hint">Fixed count</span>
+                </div>
+                <div class="input-group">
+                    <label>◀️ West:</label>
+                    <input type="number" id="west-input" min="0" max="100" value="0" onchange="updateVehicleCount('West', this.value)">
+                    <span class="input-hint" id="west-hint">Fixed count</span>
+                </div>
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <button class="btn" onclick="applyVehicleCounts()">✅ Apply Changes</button>
+                <button class="btn" onclick="resetVehicleCounts()">🔄 Reset All</button>
+                <button class="btn" onclick="showPresetScenarios()" id="preset-btn">📋 Preset Scenarios</button>
+            </div>
+        </div>
+
+        <!-- Preset Scenarios Panel -->
+        <div id="preset-panel" class="card" style="display: none; margin: 20px 0;">
+            <h3 data-icon="📋">Traffic Scenario Presets</h3>
+            <p style="margin-bottom: 15px; opacity: 0.9;">Choose a typical traffic scenario:</p>
+            <div class="preset-grid">
+                <button class="preset-btn" onclick="applyPreset('morning_light')">🌅 Early Morning<br><small>N:8, E:6, S:10, W:5</small></button>
+                <button class="preset-btn" onclick="applyPreset('morning_rush')">🚗 Morning Rush<br><small>N:25, E:12, S:30, W:15</small></button>
+                <button class="preset-btn" onclick="applyPreset('lunch_time')">🍽️ Lunch Time<br><small>N:18, E:20, S:16, W:22</small></button>
+                <button class="preset-btn" onclick="applyPreset('evening_rush')">🌆 Evening Rush<br><small>N:15, E:28, S:12, W:35</small></button>
+                <button class="preset-btn" onclick="applyPreset('weekend')">🛍️ Weekend<br><small>N:20, E:25, S:18, W:28</small></button>
+                <button class="preset-btn" onclick="applyPreset('night')">🌙 Late Night<br><small>N:3, E:5, S:2, W:4</small></button>
+                <button class="preset-btn" onclick="applyPreset('rain')">🌧️ Rainy Day<br><small>N:30, E:25, S:35, W:28</small></button>
+                <button class="preset-btn" onclick="applyPreset('emergency')">🚨 Emergency<br><small>N:45, E:40, S:50, W:38</small></button>
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <button class="btn" onclick="hidePresetScenarios()">❌ Close</button>
+            </div>
+        </div>
 
         <div class="dashboard">
             <div class="card">
@@ -338,6 +602,9 @@ def index():
     <script>
         const socket = io();
         let isRunning = false;
+        let manualMode = false;
+        let testMode = false;
+        let testTimer = null;
 
         // Socket event handlers
         socket.on('traffic_update', function(data) {
@@ -361,6 +628,25 @@ def index():
             updateTrafficLightPredictions(data);
         });
 
+        socket.on('auto_limits_data', function(data) {
+            // Update input fields with auto limits
+            document.getElementById('north-input').value = data.North || 15;
+            document.getElementById('east-input').value = data.East || 15;
+            document.getElementById('south-input').value = data.South || 15;
+            document.getElementById('west-input').value = data.West || 15;
+        });
+
+        socket.on('test_status_update', function(data) {
+            document.getElementById('current-test').textContent = data.current_test;
+            document.getElementById('test-progress').textContent = `${data.test_index + 1}/${data.total_tests}`;
+            document.getElementById('time-remaining').textContent = `${data.time_remaining}s`;
+            document.getElementById('test-description').textContent = data.description;
+        });
+
+        socket.on('test_scenario_changed', function(data) {
+            addLogEntry(`🧪 Test: ${data.name} - ${data.description}`);
+        });
+
         function startSimulation() {
             socket.emit('start_simulation');
             addLogEntry('🚀 Starting simulation...');
@@ -369,6 +655,197 @@ def index():
         function stopSimulation() {
             socket.emit('stop_simulation');
             addLogEntry('🛑 Stopping simulation...');
+        }
+
+        function toggleManualMode() {
+            manualMode = !manualMode;
+            const panel = document.getElementById('control-panel');
+            const button = document.getElementById('manual-toggle');
+            const title = document.getElementById('control-title');
+            const description = document.getElementById('control-description');
+
+            if (manualMode) {
+                // Manual Mode - Fixed vehicle counts
+                panel.style.display = 'block';
+                button.textContent = '🤖 Auto Mode';
+                button.classList.add('active');
+                title.textContent = '🎛️ Manual Vehicle Control';
+                description.textContent = 'Set specific vehicle counts for each direction:';
+
+                // Update input hints
+                updateInputHints('Fixed count');
+
+                socket.emit('set_manual_mode', {enabled: true});
+                addLogEntry('🎛️ Manual mode enabled - Set exact vehicle counts');
+            } else {
+                // Auto Mode - Maximum vehicle limits
+                title.textContent = '🤖 Auto Mode Limits';
+                description.textContent = 'Set maximum vehicle limits for each direction:';
+                button.textContent = '🎛️ Manual Mode';
+                button.classList.remove('active');
+
+                // Update input hints
+                updateInputHints('Max limit');
+
+                // Load current auto limits
+                loadAutoLimits();
+
+                socket.emit('set_manual_mode', {enabled: false});
+                addLogEntry('🤖 Auto mode enabled - Set maximum vehicle limits');
+            }
+        }
+
+        function updateInputHints(hintText) {
+            document.getElementById('north-hint').textContent = hintText;
+            document.getElementById('east-hint').textContent = hintText;
+            document.getElementById('south-hint').textContent = hintText;
+            document.getElementById('west-hint').textContent = hintText;
+        }
+
+        function loadAutoLimits() {
+            // Request current auto limits from server
+            socket.emit('get_auto_limits');
+        }
+
+        function updateVehicleCount(direction, value) {
+            const count = parseInt(value) || 0;
+            const mode = manualMode ? 'fixed count' : 'max limit';
+            addLogEntry(`📝 ${direction} ${mode}: ${count} vehicles`);
+        }
+
+        function applyVehicleCounts() {
+            const counts = {
+                North: parseInt(document.getElementById('north-input').value) || 0,
+                East: parseInt(document.getElementById('east-input').value) || 0,
+                South: parseInt(document.getElementById('south-input').value) || 0,
+                West: parseInt(document.getElementById('west-input').value) || 0
+            };
+
+            if (manualMode) {
+                socket.emit('update_manual_counts', counts);
+                const total = counts.North + counts.East + counts.South + counts.West;
+                addLogEntry(`✅ Applied manual counts - Total: ${total} vehicles`);
+            } else {
+                socket.emit('update_auto_limits', counts);
+                const total = counts.North + counts.East + counts.South + counts.West;
+                addLogEntry(`✅ Applied auto limits - Max total: ${total} vehicles`);
+            }
+        }
+
+        function resetVehicleCounts() {
+            const defaultValue = manualMode ? 0 : 15;
+            document.getElementById('north-input').value = defaultValue;
+            document.getElementById('east-input').value = defaultValue;
+            document.getElementById('south-input').value = defaultValue;
+            document.getElementById('west-input').value = defaultValue;
+            applyVehicleCounts();
+            const mode = manualMode ? 'manual counts' : 'auto limits';
+            addLogEntry(`🔄 Reset all ${mode} to ${defaultValue}`);
+        }
+
+        function toggleTestMode() {
+            testMode = !testMode;
+            const testPanel = document.getElementById('test-status');
+            const controlPanel = document.getElementById('control-panel');
+            const testButton = document.getElementById('test-toggle');
+            const manualButton = document.getElementById('manual-toggle');
+
+            if (testMode) {
+                // Enable test mode
+                testPanel.style.display = 'block';
+                controlPanel.style.display = 'none';
+                testButton.textContent = '🎛️ Disable Test Mode';
+                testButton.classList.add('active');
+                manualButton.disabled = true;
+                manualButton.style.opacity = '0.5';
+
+                socket.emit('set_test_mode', {enabled: true});
+                addLogEntry('🧪 Test mode enabled - Running automated scenarios');
+
+                // Start test countdown
+                startTestCountdown();
+            } else {
+                // Disable test mode
+                testPanel.style.display = 'none';
+                testButton.textContent = '🧪 Test Mode';
+                testButton.classList.remove('active');
+                manualButton.disabled = false;
+                manualButton.style.opacity = '1';
+
+                socket.emit('set_test_mode', {enabled: false});
+                addLogEntry('🎛️ Test mode disabled - Manual control restored');
+
+                // Clear test timer
+                if (testTimer) {
+                    clearInterval(testTimer);
+                    testTimer = null;
+                }
+            }
+        }
+
+        function startTestCountdown() {
+            if (testTimer) clearInterval(testTimer);
+
+            testTimer = setInterval(() => {
+                socket.emit('get_test_status');
+            }, 1000); // Update every second
+        }
+
+        function nextTest() {
+            socket.emit('next_test');
+            addLogEntry('⏭️ Skipping to next test scenario');
+        }
+
+        function resetTests() {
+            socket.emit('reset_tests');
+            addLogEntry('🔄 Resetting test scenarios to beginning');
+        }
+
+        function showPresetScenarios() {
+            const presetPanel = document.getElementById('preset-panel');
+            const presetBtn = document.getElementById('preset-btn');
+
+            if (presetPanel.style.display === 'none' || presetPanel.style.display === '') {
+                presetPanel.style.display = 'block';
+                presetBtn.textContent = '❌ Close Presets';
+                presetBtn.classList.add('active');
+            } else {
+                hidePresetScenarios();
+            }
+        }
+
+        function hidePresetScenarios() {
+            const presetPanel = document.getElementById('preset-panel');
+            const presetBtn = document.getElementById('preset-btn');
+
+            presetPanel.style.display = 'none';
+            presetBtn.textContent = '📋 Preset Scenarios';
+            presetBtn.classList.remove('active');
+        }
+
+        function applyPreset(presetType) {
+            const presets = {
+                'morning_light': {North: 8, East: 6, South: 10, West: 5, name: 'Early Morning'},
+                'morning_rush': {North: 25, East: 12, South: 30, West: 15, name: 'Morning Rush'},
+                'lunch_time': {North: 18, East: 20, South: 16, West: 22, name: 'Lunch Time'},
+                'evening_rush': {North: 15, East: 28, South: 12, West: 35, name: 'Evening Rush'},
+                'weekend': {North: 20, East: 25, South: 18, West: 28, name: 'Weekend'},
+                'night': {North: 3, East: 5, South: 2, West: 4, name: 'Late Night'},
+                'rain': {North: 30, East: 25, South: 35, West: 28, name: 'Rainy Day'},
+                'emergency': {North: 45, East: 40, South: 50, West: 38, name: 'Emergency'}
+            };
+
+            const preset = presets[presetType];
+            if (preset) {
+                document.getElementById('north-input').value = preset.North;
+                document.getElementById('east-input').value = preset.East;
+                document.getElementById('south-input').value = preset.South;
+                document.getElementById('west-input').value = preset.West;
+
+                applyVehicleCounts();
+                hidePresetScenarios();
+                addLogEntry(`📋 Applied preset: ${preset.name}`);
+            }
         }
 
         function updateStatus(running) {
@@ -521,20 +998,195 @@ def handle_get_status():
     """Get current simulation status"""
     emit('simulation_status', {'running': simulation_running})
 
+@socketio.on('set_manual_mode')
+def handle_set_manual_mode(data):
+    """Enable or disable manual mode"""
+    global manual_mode
+    manual_mode = data.get('enabled', False)
+    mode_text = "Manual" if manual_mode else "Automatic"
+    emit('activity_log', {'message': f'🔧 Mode changed to: {mode_text}'}, broadcast=True)
+
+@socketio.on('update_manual_counts')
+def handle_update_manual_counts(data):
+    """Update manual vehicle counts"""
+    global manual_vehicle_counts
+    manual_vehicle_counts.update(data)
+    total = sum(manual_vehicle_counts.values())
+    emit('activity_log', {'message': f'📊 Manual counts updated - Total: {total} vehicles'}, broadcast=True)
+
+@socketio.on('update_auto_limits')
+def handle_update_auto_limits(data):
+    """Update auto mode maximum limits"""
+    global auto_mode_limits
+    auto_mode_limits.update(data)
+    total = sum(auto_mode_limits.values())
+    emit('activity_log', {'message': f'🤖 Auto limits updated - Max total: {total} vehicles'}, broadcast=True)
+
+@socketio.on('get_auto_limits')
+def handle_get_auto_limits():
+    """Send current auto limits to client"""
+    emit('auto_limits_data', auto_mode_limits)
+
+@socketio.on('set_test_mode')
+def handle_set_test_mode(data):
+    """Enable or disable test mode"""
+    global test_mode, test_start_time, current_test_index
+    test_mode = data.get('enabled', False)
+    if test_mode:
+        test_start_time = time.time()
+        current_test_index = 0
+        emit('activity_log', {'message': '🧪 Automated test mode started'}, broadcast=True)
+    else:
+        emit('activity_log', {'message': '🎛️ Test mode stopped'}, broadcast=True)
+
+@socketio.on('get_test_status')
+def handle_get_test_status():
+    """Send current test status"""
+    if test_mode and test_scenarios:
+        current_scenario = test_scenarios[current_test_index]
+        elapsed = time.time() - test_start_time
+        remaining = max(0, current_scenario['duration'] - int(elapsed))
+
+        emit('test_status_update', {
+            'current_test': current_scenario['name'],
+            'description': current_scenario['description'],
+            'test_index': current_test_index,
+            'total_tests': len(test_scenarios),
+            'time_remaining': remaining
+        })
+
+@socketio.on('next_test')
+def handle_next_test():
+    """Skip to next test scenario"""
+    global current_test_index, test_start_time
+    if test_mode:
+        current_test_index = (current_test_index + 1) % len(test_scenarios)
+        test_start_time = time.time()
+        emit('activity_log', {'message': f'⏭️ Switched to: {test_scenarios[current_test_index]["name"]}'}, broadcast=True)
+
+@socketio.on('reset_tests')
+def handle_reset_tests():
+    """Reset test scenarios to beginning"""
+    global current_test_index, test_start_time
+    if test_mode:
+        current_test_index = 0
+        test_start_time = time.time()
+        emit('activity_log', {'message': '🔄 Test scenarios reset to beginning'}, broadcast=True)
+
 def simulation_loop():
     """Main simulation loop"""
-    global simulation_running
-    
+    global simulation_running, manual_mode, manual_vehicle_counts, auto_mode_limits
+    global test_mode, test_scenarios, current_test_index, test_start_time
+
     while simulation_running:
         try:
-            # Update traffic simulation
-            traffic_sim.update_simulation(1.0)
-            
-            # Get current data
-            stats = traffic_sim.get_traffic_statistics()
-            zone_counts = traffic_sim.get_vehicle_counts_by_zone()
+            # Handle test mode scenario switching
+            if test_mode and test_scenarios:
+                current_scenario = test_scenarios[current_test_index]
+                elapsed = time.time() - test_start_time
+
+                # Check if it's time to switch to next scenario
+                if elapsed >= current_scenario['duration']:
+                    current_test_index = (current_test_index + 1) % len(test_scenarios)
+                    test_start_time = time.time()
+                    new_scenario = test_scenarios[current_test_index]
+
+                    socketio.emit('test_scenario_changed', {
+                        'name': new_scenario['name'],
+                        'description': new_scenario['description']
+                    })
+                    socketio.emit('activity_log', {
+                        'message': f'🧪 Auto-switched to: {new_scenario["name"]}'
+                    })
+
+                # Use current test scenario counts
+                zone_counts = {}
+                total_test = 0
+                for direction, count in current_scenario['counts'].items():
+                    zone_counts[direction] = {
+                        'cars': max(0, count - 3),
+                        'trucks': min(3, count // 3),
+                        'buses': min(2, count // 4),
+                        'motorcycles': min(4, count // 2),
+                        'bicycles': min(2, count // 5),
+                        'emergency_vehicles': 2 if count > 20 else 1 if count > 10 else 0,
+                        'total': count
+                    }
+                    total_test += count
+
+                # Create test stats
+                stats = {
+                    'total_vehicles': total_test,
+                    'by_type': {
+                        'cars': sum(zc.get('cars', 0) for zc in zone_counts.values()),
+                        'trucks': sum(zc.get('trucks', 0) for zc in zone_counts.values()),
+                        'buses': sum(zc.get('buses', 0) for zc in zone_counts.values()),
+                        'motorcycles': sum(zc.get('motorcycles', 0) for zc in zone_counts.values()),
+                        'emergency': sum(zc.get('emergency_vehicles', 0) for zc in zone_counts.values())
+                    },
+                    'average_speed': max(15, 45 - (total_test * 0.3)),  # Speed decreases with more vehicles
+                    'emergency_vehicles': sum(zc.get('emergency_vehicles', 0) for zc in zone_counts.values()),
+                    'density_level': 'low' if total_test < 30 else 'medium' if total_test < 60 else 'high' if total_test < 100 else 'extreme',
+                    'timestamp': time.time()
+                }
+
+            elif manual_mode:
+                # Manual Mode - Use exact counts
+                zone_counts = {}
+                total_manual = 0
+                for direction, count in manual_vehicle_counts.items():
+                    zone_counts[direction] = {
+                        'cars': max(0, count - 2),
+                        'trucks': min(2, count // 3),
+                        'buses': min(1, count // 5),
+                        'motorcycles': min(3, count // 2),
+                        'bicycles': min(2, count // 4),
+                        'emergency_vehicles': 1 if count > 10 else 0,
+                        'total': count
+                    }
+                    total_manual += count
+
+                # Create manual stats
+                stats = {
+                    'total_vehicles': total_manual,
+                    'by_type': {
+                        'cars': sum(zc.get('cars', 0) for zc in zone_counts.values()),
+                        'trucks': sum(zc.get('trucks', 0) for zc in zone_counts.values()),
+                        'buses': sum(zc.get('buses', 0) for zc in zone_counts.values()),
+                        'motorcycles': sum(zc.get('motorcycles', 0) for zc in zone_counts.values()),
+                        'emergency': sum(zc.get('emergency_vehicles', 0) for zc in zone_counts.values())
+                    },
+                    'average_speed': 35 + (total_manual * -0.2),  # Speed decreases with more vehicles
+                    'emergency_vehicles': sum(zc.get('emergency_vehicles', 0) for zc in zone_counts.values()),
+                    'density_level': 'low' if total_manual < 20 else 'medium' if total_manual < 40 else 'high',
+                    'timestamp': time.time()
+                }
+            else:
+                # Auto Mode - Use simulation with limits
+                traffic_sim.update_simulation(1.0)
+                stats = traffic_sim.get_traffic_statistics()
+                zone_counts = traffic_sim.get_vehicle_counts_by_zone()
+
+                # Apply auto mode limits
+                for direction, limit in auto_mode_limits.items():
+                    if direction in zone_counts:
+                        current_total = zone_counts[direction].get('total', 0)
+                        if current_total > limit:
+                            # Scale down all vehicle types proportionally
+                            scale_factor = limit / current_total if current_total > 0 else 1
+                            for vehicle_type in zone_counts[direction]:
+                                if vehicle_type != 'total':
+                                    zone_counts[direction][vehicle_type] = int(zone_counts[direction][vehicle_type] * scale_factor)
+                            zone_counts[direction]['total'] = limit
+
+                # Recalculate stats with limited counts
+                total_limited = sum(zc.get('total', 0) for zc in zone_counts.values())
+                stats['total_vehicles'] = total_limited
+                stats['density_level'] = 'low' if total_limited < 20 else 'medium' if total_limited < 40 else 'high'
+
+            # Get weather data
             weather = weather_sim.update_weather()
-            
+
             # Calculate optimal traffic light timing
             vehicle_counts_dict = {
                 'North': zone_counts.get('North', {}).get('total', 0),
@@ -575,8 +1227,16 @@ def simulation_loop():
             
             # Log periodic updates
             if int(time.time()) % 10 == 0:  # Every 10 seconds
+                if test_mode:
+                    current_scenario = test_scenarios[current_test_index]
+                    elapsed = int(time.time() - test_start_time)
+                    remaining = max(0, current_scenario['duration'] - elapsed)
+                    mode_indicator = f"🧪 Test: {current_scenario['name']} ({remaining}s)"
+                else:
+                    mode_indicator = "🎛️ Manual" if manual_mode else "🤖 Auto"
+
                 socketio.emit('activity_log', {
-                    'message': f'📊 Traffic update: {stats["total_vehicles"]} vehicles, {stats["density_level"]} density'
+                    'message': f'📊 {mode_indicator} - {stats["total_vehicles"]} vehicles, {stats["density_level"]} density'
                 })
             
             time.sleep(2)  # Update every 2 seconds

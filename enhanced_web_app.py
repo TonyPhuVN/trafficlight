@@ -13,7 +13,9 @@ import sys
 import os
 
 # Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(current_dir, 'src')
+sys.path.insert(0, src_dir)
 
 # Import the traffic simulator and optimizer
 from data_simulation.traffic_simulator import TrafficSimulator, WeatherSimulator
@@ -424,7 +426,7 @@ def index():
         <div class="header">
             <h1>🚦 Enhanced Smart Traffic AI System</h1>
             <p class="gradient-text">Manual Vehicle Control & Road Navigation Dashboard</p>
-            <div id="current-time" style="font-size: 1.2em; margin-top: 10px;">Loading...</div>
+            <div id="current-time" style="font-size: 1.4em; margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; border: 2px solid #ffd700;">Loading...</div>
         </div>
 
         <div class="controls-section">
@@ -436,16 +438,16 @@ def index():
                         <input type="number" id="north-input" value="0" min="0" max="50">
                     </div>
                     <div class="direction-control">
-                        <label>▶️ East</label>
-                        <input type="number" id="east-input" value="0" min="0" max="50">
-                    </div>
-                    <div class="direction-control">
                         <label>🔽 South</label>
                         <input type="number" id="south-input" value="0" min="0" max="50">
                     </div>
                     <div class="direction-control">
                         <label>◀️ West</label>
                         <input type="number" id="west-input" value="0" min="0" max="50">
+                    </div>
+                    <div class="direction-control">
+                        <label>▶️ East</label>
+                        <input type="number" id="east-input" value="0" min="0" max="50">
                     </div>
                     <div class="total-control">
                         <label>🎯 Total Target Vehicles</label>
@@ -624,30 +626,42 @@ def index():
 
             <div class="card">
                 <h3 data-icon="🚦">AI Traffic Light Control</h3>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
-                    <div class="stat-item">
-                        <span class="stat-value" id="ns-green-time">30</span>
-                        <span class="stat-label">🟢 North-South Green (s)</span>
+                
+                <!-- North-South Row -->
+                <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                    <div style="text-align: center; font-weight: bold; color: #ffd700; margin-bottom: 10px;">🔼🔽 NORTH - SOUTH DIRECTION</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <div class="stat-item">
+                            <span class="stat-value" id="ns-green-time">30</span>
+                            <span class="stat-label">🟢 Green (s)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="ns-red-time">36</span>
+                            <span class="stat-label" style="color: #ff6b6b;">🔴 Red (s)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="ns-yellow-time">3</span>
+                            <span class="stat-label" style="color: #ffd93d;">🟡 Yellow (s)</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="ns-red-time">36</span>
-                        <span class="stat-label" style="color: #ff6b6b;">🔴 North-South Red (s)</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="ns-yellow-time">3</span>
-                        <span class="stat-label" style="color: #ffd93d;">🟡 North-South Yellow (s)</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="ew-green-time">30</span>
-                        <span class="stat-label">🟢 East-West Green (s)</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="ew-red-time">36</span>
-                        <span class="stat-label" style="color: #ff6b6b;">🔴 East-West Red (s)</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="ew-yellow-time">3</span>
-                        <span class="stat-label" style="color: #ffd93d;">🟡 East-West Yellow (s)</span>
+                </div>
+
+                <!-- East-West Row -->
+                <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="text-align: center; font-weight: bold; color: #ffd700; margin-bottom: 10px;">◀️▶️ EAST - WEST DIRECTION</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <div class="stat-item">
+                            <span class="stat-value" id="ew-green-time">30</span>
+                            <span class="stat-label">🟢 Green (s)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="ew-red-time">36</span>
+                            <span class="stat-label" style="color: #ff6b6b;">🔴 Red (s)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="ew-yellow-time">3</span>
+                            <span class="stat-label" style="color: #ffd93d;">🟡 Yellow (s)</span>
+                        </div>
                     </div>
                 </div>
                 <div class="stat-grid">
@@ -841,24 +855,38 @@ def index():
 
         function updateClock() {
             const now = new Date();
-            const timeString = now.toLocaleTimeString('en-GB', {
-                timeZone: 'Asia/Ho_Chi_Minh',
+            
+            // Get Hanoi time (UTC+7)
+            const hanoiTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
+            
+            const timeString = hanoiTime.toLocaleTimeString('en-GB', {
                 hour12: false,
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit'
             });
-            const dateString = now.toLocaleDateString('en-US', {
-                timeZone: 'Asia/Ho_Chi_Minh',
+            
+            const dateString = hanoiTime.toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
             });
             
+            // Get timezone info
+            const utcOffset = '+7';
+            const timezoneName = 'ICT (Indochina Time)';
+            
             document.getElementById('current-time').innerHTML = `
-                <div style="font-size: 1.4em; font-weight: bold;">${timeString}</div>
-                <div style="font-size: 0.9em; opacity: 0.8;">${dateString} • Hanoi, Vietnam</div>
+                <div style="font-size: 1.6em; font-weight: bold; color: #ffd700; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+                    🕐 ${timeString}
+                </div>
+                <div style="font-size: 1.1em; margin-top: 5px; color: #ffffff;">
+                    📅 ${dateString}
+                </div>
+                <div style="font-size: 0.9em; margin-top: 5px; color: #ffd700; font-weight: bold;">
+                    🌏 Hanoi, Vietnam (UTC${utcOffset}) • ${timezoneName}
+                </div>
             `;
         }
 

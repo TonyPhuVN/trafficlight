@@ -99,28 +99,49 @@ class TrafficLightOptimizer:
             ew_green = self.min_green_time
             reasoning = "No traffic detected - using minimal timing"
         else:
-            # Calculate proportional timing
+            # Calculate proportional timing based PRIMARILY on actual vehicle counts
             ns_ratio = north_south_demand / total_demand if total_demand > 0 else 0.5
             ew_ratio = east_west_demand / total_demand if total_demand > 0 else 0.5
             
-            # Apply pattern-based adjustments
+            # Apply minimal pattern-based adjustments (only 10% influence, 90% real data)
             pattern_data = self.traffic_patterns.get(pattern, self.traffic_patterns['normal_day'])
-            ns_ratio = (ns_ratio + pattern_data['north_south_ratio']) / 2
-            ew_ratio = (ew_ratio + pattern_data['east_west_ratio']) / 2
+            ns_ratio = (ns_ratio * 0.9) + (pattern_data['north_south_ratio'] * 0.1)
+            ew_ratio = (ew_ratio * 0.9) + (pattern_data['east_west_ratio'] * 0.1)
+            
+            # Ensure ratios add up to 1.0
+            total_ratio = ns_ratio + ew_ratio
+            if total_ratio > 0:
+                ns_ratio = ns_ratio / total_ratio
+                ew_ratio = ew_ratio / total_ratio
             
             # Calculate base cycle time based on total demand
             base_cycle_time = self._calculate_base_cycle_time(total_demand)
             
-            # Distribute time proportionally
+            # Distribute time proportionally with minimum guarantees
             available_green_time = base_cycle_time - (2 * self.yellow_time)
-            ns_green = max(self.min_green_time, 
-                          min(self.max_green_time, 
-                              int(available_green_time * ns_ratio)))
-            ew_green = max(self.min_green_time,
-                          min(self.max_green_time, 
-                              int(available_green_time * ew_ratio)))
             
-            reasoning = f"Proportional timing: NS={ns_ratio:.2f}, EW={ew_ratio:.2f}, Total vehicles={total_demand}"
+            # Calculate ideal timing
+            ideal_ns_green = int(available_green_time * ns_ratio)
+            ideal_ew_green = int(available_green_time * ew_ratio)
+            
+            # Apply minimum/maximum constraints
+            ns_green = max(self.min_green_time, min(self.max_green_time, ideal_ns_green))
+            ew_green = max(self.min_green_time, min(self.max_green_time, ideal_ew_green))
+            
+            # Adjust if one direction hits constraints
+            total_assigned = ns_green + ew_green
+            if total_assigned < available_green_time:
+                # Distribute remaining time proportionally
+                remaining_time = available_green_time - total_assigned
+                if ns_green < self.max_green_time and ew_green < self.max_green_time:
+                    if ns_ratio > ew_ratio:
+                        ns_green += int(remaining_time * 0.6)
+                        ew_green += int(remaining_time * 0.4)
+                    else:
+                        ew_green += int(remaining_time * 0.6)
+                        ns_green += int(remaining_time * 0.4)
+            
+            reasoning = f"Vehicle-based timing: NS={north_south_demand}v({ns_ratio:.2f}), EW={east_west_demand}v({ew_ratio:.2f}), Total={total_demand}v"
         
         # Apply weather factor
         ns_green = int(ns_green * weather_factor)
